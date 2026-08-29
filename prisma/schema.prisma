@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Service {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  createdAt      DateTime        @default(now())
+  nonConformites NonConformite[]
+  actions        Action[]
+}
+
+model NonConformite {
+  id          String   @id
+  date        String
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  source      String
+  gravite     String
+  statut      String
+  description String
+  causeRacine String   @default("")
+  responsable String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  actions     Action[]
+}
+
+model Action {
+  id              String         @id
+  type            String
+  origine         String         @default("")
+  description     String
+  serviceId       String
+  service         Service        @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  responsable     String         @default("")
+  dateCreation    String
+  echeance        String         @default("")
+  statut          String
+  priorite        String
+  efficacite      String         @default("")
+  ncId            String?
+  nonConformite   NonConformite? @relation(fields: [ncId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model Event {
+  id                String   @id
+  type              String
+  date              String
+  statut            String
+  servicesConcernes Json     @default("[]")
+  participants      String   @default("")
+  ordreDuJour       String   @default("")
+  compteRendu       String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// Indicateurs agrégés (webirata : stagiaires, satisfaction, processus…)
+model Indicator {
+  id        String   @id
+  source    String
+  category  String
+  label     String
+  value     String
+  numeric   Float?
+  period    String   @default("")
+  detail    String   @default("")
+  syncedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
