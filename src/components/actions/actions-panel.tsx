@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, ClipboardCheck, Plus, X } from "lucide-react";
+import { Check, ClipboardCheck, Download, Plus, X } from "lucide-react";
 import { CordisteRichText } from "@/components/ui/cordiste-rich-text";
 import {
   Btn,
@@ -60,6 +60,7 @@ export function ActionsPanel() {
   const { data, loading, error, refresh } = useSmqData();
   const [form, setForm] = useState<ActionForm | null>(null);
   const [filterStatut, setFilterStatut] = useState("Toutes");
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -98,12 +99,33 @@ export function ActionsPanel() {
     await refresh();
   }
 
+  async function downloadPdf() {
+    setDownloadingPdf(true);
+    try {
+      const response = await fetch("/api/actions/pdf");
+      if (!response.ok) {
+        throw new Error("PDF indisponible");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `audit-action-monitoring-${new Date().toISOString().slice(0, 10)}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert("Impossible de télécharger le PDF. Vérifiez votre connexion administrateur.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
   return (
     <div>
       <DocHeader
         title="Actions correctives, préventives et d'amélioration"
         sub="Plan d'actions du SMQ — tous services"
-        code="SMQ-ACT"
+        code="ENR-CIFRA-QHSE 005"
       />
 
       <div className="mb-4 flex items-center gap-2.5">
@@ -113,6 +135,10 @@ export function ActionsPanel() {
           options={["Toutes", ...ACTION_STATUTS]}
         />
         <div className="flex-1" />
+        <Btn kind="ghost" disabled={downloadingPdf} onClick={() => void downloadPdf()}>
+          <Download size={14} />
+          {downloadingPdf ? "PDF…" : "Télécharger PDF"}
+        </Btn>
         <Btn onClick={() => setForm(emptyAction(services[0]?.id ?? ""))}>
           <Plus size={14} /> Nouvelle action
         </Btn>

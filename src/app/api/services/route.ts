@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { assertAdminApi } from "@/lib/admin-require";
 import { prisma } from "@/lib/db";
 import { getSmqData } from "@/lib/smq-context";
 
 export async function GET() {
+  const denied = await assertAdminApi();
+  if (denied) return denied;
+
   try {
     const data = await getSmqData();
     return NextResponse.json(data);
@@ -16,6 +20,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await assertAdminApi();
+  if (denied) return denied;
+
   const body = (await request.json()) as { name?: string };
   const name = body.name?.trim();
 

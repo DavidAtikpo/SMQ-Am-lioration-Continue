@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import { assertAdminApi } from "@/lib/admin-require";
 import { prisma } from "@/lib/db";
 import { nextCode } from "@/lib/utils";
 
 export async function GET() {
+  const denied = await assertAdminApi();
+  if (denied) return denied;
   const actions = await prisma.action.findMany({
     include: { service: true },
     orderBy: { echeance: "asc" },
@@ -11,9 +14,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = await assertAdminApi();
+  if (denied) return denied;
+
   const body = await request.json();
   const existing = await prisma.action.findMany({ select: { id: true } });
-  const id = body.id || nextCode("CA", existing.map((item) => item.id));
+  const id = body.id || nextCode("CA", existing.map((item: { id: string }) => item.id));
 
   const service = await prisma.service.findUnique({ where: { id: body.serviceId } });
   if (!service) {

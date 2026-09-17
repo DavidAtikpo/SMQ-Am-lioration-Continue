@@ -51,11 +51,14 @@ function createPool(url: string | undefined, label: string, fallbackSchema: stri
   return pool;
 }
 
+function getCordisteDatabaseUrl(): string | undefined {
+  return process.env.CORDISTE_DATABASE_URL ?? process.env.CATALOG_DATABASE_URL;
+}
+
 export function getCordistePool(): Pool | null {
   if (!globalPools.cordistePool) {
     globalPools.cordistePool =
-      createPool(process.env.CORDISTE_DATABASE_URL, "CORDISTE_DATABASE_URL", "webirata") ??
-      undefined;
+      createPool(getCordisteDatabaseUrl(), "CORDISTE_DATABASE_URL", "webirata") ?? undefined;
   }
   return globalPools.cordistePool ?? null;
 }

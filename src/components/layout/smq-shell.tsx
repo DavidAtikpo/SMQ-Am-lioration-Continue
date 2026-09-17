@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import {
   AlertTriangle,
   Building2,
@@ -9,6 +10,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   LayoutGrid,
+  LogOut,
   Sparkles,
   Stamp,
 } from "lucide-react";
@@ -27,6 +29,11 @@ const ICONS = {
 
 export function SmqShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const adminName =
+    [session?.user?.prenom, session?.user?.nom].filter(Boolean).join(" ") ||
+    session?.user?.email ||
+    "Administrateur";
 
   return (
     <SmqProvider>
@@ -64,9 +71,20 @@ export function SmqShell({ children }: { children: React.ReactNode }) {
             );
           })}
 
-          <p className="mt-auto border-t border-white/10 px-2 pt-3.5 text-[10.5px] leading-relaxed text-[#8A8577]">
-            Données centralisées pour le pilotage SMQ. Référentiel QHSE européen — cycle PDCA.
-          </p>
+          <div className="mt-auto border-t border-white/10 px-2 pt-3.5">
+            <p className="truncate text-[11px] font-semibold text-white/90">{adminName}</p>
+            <p className="mt-1 text-[10.5px] leading-relaxed text-[#8A8577]">
+              Accès administrateur · SMQ interne
+            </p>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] font-semibold text-[#C9C4B4] transition-colors hover:bg-white/5 hover:text-white"
+            >
+              <LogOut size={14} />
+              Déconnexion
+            </button>
+          </div>
         </aside>
 
         <main className="h-full flex-1 overflow-y-auto px-7 py-6">{children}</main>

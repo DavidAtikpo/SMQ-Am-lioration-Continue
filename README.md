@@ -16,12 +16,14 @@ Application Next.js de **Système de Management de la Qualité (SMQ)** avec assi
 ```bash
 npm install
 cp .env.example .env
-# Renseigner ANTHROPIC_API_KEY dans .env
+# Renseigner DATABASE_URL, CORDISTE_DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL
 npm run db:setup
 npm run dev
 ```
 
-Ouvrir [http://localhost:3000](http://localhost:3000).
+Ouvrir [http://localhost:3000](http://localhost:3000) — **connexion administrateur requise** (`/login`).
+
+Les comptes autorisés sont les utilisateurs **ADMIN** de la base webirata (a-finpart), via `CORDISTE_DATABASE_URL`.
 
 ## Stack
 

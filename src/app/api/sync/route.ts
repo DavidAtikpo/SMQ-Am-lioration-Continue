@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertAdminApi } from "@/lib/admin-require";
 import { ensureQhseCalendar } from "@/lib/smq-planning";
 import { syncAgenda } from "@/lib/sync/agenda";
 import { syncCordiste } from "@/lib/sync/cordiste";
@@ -9,6 +10,9 @@ import {
 } from "@/lib/sync/stagiaires-satisfaction";
 
 export async function POST() {
+  const denied = await assertAdminApi();
+  if (denied) return denied;
+
   try {
     const [cordiste, agenda, stagiaires, satisfaction, processus, qhse] = await Promise.all([
       syncCordiste(),

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { assertAdminApi } from "@/lib/admin-require";
 import { prisma } from "@/lib/db";
 import { nextCode } from "@/lib/utils";
 
@@ -21,14 +22,20 @@ function mapEvent(event: {
 }
 
 export async function GET() {
+  const denied = await assertAdminApi();
+  if (denied) return denied;
+
   const events = await prisma.event.findMany({ orderBy: { date: "asc" } });
   return NextResponse.json(events.map(mapEvent));
 }
 
 export async function POST(request: Request) {
+  const denied = await assertAdminApi();
+  if (denied) return denied;
+
   const body = await request.json();
   const existing = await prisma.event.findMany({ select: { id: true } });
-  const id = body.id || nextCode("EVT", existing.map((item) => item.id));
+  const id = body.id || nextCode("EVT", existing.map((item: { id: string }) => item.id));
 
   const event = await prisma.event.upsert({
     where: { id },
