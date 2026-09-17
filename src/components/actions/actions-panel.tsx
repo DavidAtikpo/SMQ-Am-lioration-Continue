@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, ClipboardCheck, Download, Plus, X } from "lucide-react";
 import { CordisteRichText } from "@/components/ui/cordiste-rich-text";
@@ -59,24 +59,23 @@ export function ActionsPanel() {
   const searchParams = useSearchParams();
   const { data, loading, error, refresh } = useSmqData();
   const [form, setForm] = useState<ActionForm | null>(null);
+  const [prefillNcId, setPrefillNcId] = useState<string | null>(null);
   const [filterStatut, setFilterStatut] = useState("Toutes");
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
-  useEffect(() => {
-    if (!data) return;
-    const ncId = searchParams.get("ncId");
-    if (!ncId) return;
+  if (loading || !data) return <LoadingState error={error} onRetry={() => void refresh()} />;
 
+  const ncIdFromUrl = searchParams.get("ncId");
+  if (ncIdFromUrl && prefillNcId !== ncIdFromUrl) {
+    setPrefillNcId(ncIdFromUrl);
     setForm({
       ...emptyAction(searchParams.get("serviceId") ?? data.services[0]?.id ?? ""),
-      ncId,
-      origine: searchParams.get("origine") ?? ncId,
+      ncId: ncIdFromUrl,
+      origine: searchParams.get("origine") ?? ncIdFromUrl,
       description: searchParams.get("description") ?? "",
       serviceId: searchParams.get("serviceId") ?? data.services[0]?.id ?? "",
     });
-  }, [searchParams, data]);
-
-  if (loading || !data) return <LoadingState error={error} onRetry={() => void refresh()} />;
+  }
 
   const { services, actions } = data;
   const filtered = actions.filter(

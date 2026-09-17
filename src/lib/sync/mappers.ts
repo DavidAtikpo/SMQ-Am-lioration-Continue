@@ -82,7 +82,7 @@ export function mapActionPriorite(value: string): string {
 }
 
 /** Statut SMQ simplifié — on ne reproduit pas le Kanban Neurix (doing, testing, review…). */
-export function mapAgendaTaskStatut(_value: string): string {
+export function mapAgendaTaskStatut(): string {
   return "À faire";
 }
 
@@ -97,7 +97,7 @@ export function mapAgendaTaskPriorite(value: string): string {
 }
 
 /** Les tâches Agenda alimentent le suivi SMQ comme actions d'amélioration. */
-export function mapAgendaActionType(_status: string): string {
+export function mapAgendaActionType(): string {
   return "Amélioration";
 }
 

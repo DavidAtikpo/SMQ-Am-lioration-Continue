@@ -10,7 +10,7 @@ import {
   mapNcStatut,
   SYNC_SERVICES,
 } from "@/lib/sync/mappers";
-import { formatCordisteDescription, formatCordisteTitle } from "@/lib/cordiste-text";
+import { formatCordisteDescription } from "@/lib/cordiste-text";
 import type { SyncResult } from "@/lib/sync/types";
 
 type CordisteNcRow = {

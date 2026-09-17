@@ -1,17 +1,54 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { getSession, signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { Stamp } from "lucide-react";
 
+function resolveCallbackPath(callbackUrl: string | null): string {
+  if (!callbackUrl || callbackUrl === "null" || callbackUrl === "undefined") {
+    return "/";
+  }
+
+  const decoded = decodeURIComponent(callbackUrl).trim();
+  if (!decoded) return "/";
+
+  if (decoded.startsWith("http")) {
+    try {
+      return new URL(decoded).pathname || "/";
+    } catch {
+      return "/";
+    }
+  }
+
+  return decoded.startsWith("/") ? decoded : `/${decoded}`;
+}
+
+async function waitForAdminSession(): Promise<boolean> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const session = await getSession();
+    if (session?.user?.role === "ADMIN") {
+      return true;
+    }
+  }
+  return false;
+}
+
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    void getSession().then((session) => {
+      if (session?.user?.role === "ADMIN") {
+        window.location.href = resolveCallbackPath(searchParams.get("callbackUrl"));
+      }
+    });
+  }, [searchParams]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -30,8 +67,20 @@ function LoginForm() {
         return;
       }
 
-      router.replace("/");
-      router.refresh();
+      if (!result?.ok) {
+        setError("Erreur de connexion. Réessayez.");
+        return;
+      }
+
+      const sessionReady = await waitForAdminSession();
+      if (!sessionReady) {
+        setError(
+          "Connexion réussie mais la session n'a pas pu être établie. Vérifiez NEXTAUTH_URL et AUTH_TRUST_HOST sur Vercel.",
+        );
+        return;
+      }
+
+      window.location.href = resolveCallbackPath(searchParams.get("callbackUrl"));
     } catch {
       setError("Erreur de connexion. Réessayez.");
     } finally {

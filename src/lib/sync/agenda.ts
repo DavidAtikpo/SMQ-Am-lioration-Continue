@@ -147,7 +147,7 @@ export async function syncAgenda(): Promise<{
       await prisma.action.upsert({
         where: { id: smqId },
         update: {
-          type: mapAgendaActionType(row.status),
+          type: mapAgendaActionType(),
           origine: "Agenda",
           description: row.description?.trim()
             ? `${row.title.trim()}\n\n${row.description.trim()}`
@@ -156,14 +156,14 @@ export async function syncAgenda(): Promise<{
           responsable,
           dateCreation: toIsoDate(row.createdAt),
           echeance: row.dueDate ? toIsoDate(row.dueDate) : "",
-          statut: mapAgendaTaskStatut(row.status),
+          statut: mapAgendaTaskStatut(),
           priorite: mapAgendaTaskPriorite(row.priority),
           efficacite: "",
           ncId: null,
         },
         create: {
           id: smqId,
-          type: mapAgendaActionType(row.status),
+          type: mapAgendaActionType(),
           origine: "Agenda",
           description: row.description?.trim()
             ? `${row.title.trim()}\n\n${row.description.trim()}`
@@ -172,7 +172,7 @@ export async function syncAgenda(): Promise<{
           responsable,
           dateCreation: toIsoDate(row.createdAt),
           echeance: row.dueDate ? toIsoDate(row.dueDate) : "",
-          statut: mapAgendaTaskStatut(row.status),
+          statut: mapAgendaTaskStatut(),
           priorite: mapAgendaTaskPriorite(row.priority),
           efficacite: "",
           ncId: null,
