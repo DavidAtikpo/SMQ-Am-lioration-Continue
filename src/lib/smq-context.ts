@@ -1,6 +1,68 @@
 import { prisma } from "@/lib/db";
-import type { SmqData, SmqEvent } from "@/lib/types";
+import type { NonConformite, SmqAction, SmqData, SmqEvent } from "@/lib/types";
 import { todayISO } from "@/lib/utils";
+
+function mapNonConformite(row: {
+  id: string;
+  date: string;
+  serviceId: string;
+  service: { id: string; name: string };
+  source: string;
+  gravite: string;
+  statut: string;
+  description: string;
+  causeRacine: string;
+  responsable: string;
+  zone?: string;
+}): NonConformite {
+  return {
+    id: row.id,
+    date: row.date,
+    serviceId: row.serviceId,
+    service: row.service,
+    source: row.source,
+    gravite: row.gravite,
+    statut: row.statut,
+    description: row.description,
+    causeRacine: row.causeRacine,
+    responsable: row.responsable,
+    zone: row.zone ?? "",
+  };
+}
+
+function mapAction(row: {
+  id: string;
+  type: string;
+  origine: string;
+  description: string;
+  serviceId: string;
+  service: { id: string; name: string };
+  responsable: string;
+  dateCreation: string;
+  echeance: string;
+  statut: string;
+  priorite: string;
+  efficacite: string;
+  ncId: string | null;
+  zone?: string;
+}): SmqAction {
+  return {
+    id: row.id,
+    type: row.type,
+    origine: row.origine,
+    description: row.description,
+    serviceId: row.serviceId,
+    service: row.service,
+    responsable: row.responsable,
+    dateCreation: row.dateCreation,
+    echeance: row.echeance,
+    statut: row.statut,
+    priorite: row.priorite,
+    efficacite: row.efficacite,
+    ncId: row.ncId,
+    zone: row.zone ?? "",
+  };
+}
 
 function mapEvent(event: {
   id: string;
@@ -45,8 +107,8 @@ export async function getSmqData(): Promise<SmqData> {
 
   return {
     services,
-    nonConformites,
-    actions,
+    nonConformites: nonConformites.map(mapNonConformite),
+    actions: actions.map(mapAction),
     events: events.map(mapEvent),
     indicators,
   };
