@@ -4,16 +4,19 @@ import type { LucideIcon } from "lucide-react";
 import { STATUT_COLOR } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-export function StatusStamp({ label }: { label: string }) {
+export function StatusStamp({ label, className }: { label: string; className?: string }) {
   const color = STATUT_COLOR[label] ?? "#33566C";
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-2.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide"
+      className={cn(
+        "inline-flex max-w-full shrink-0 items-center gap-1 rounded-full border-[1.5px] px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide sm:gap-1.5 sm:px-2.5 sm:text-[11px]",
+        className,
+      )}
       style={{ color, borderColor: color, backgroundColor: `${color}14` }}
     >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-      {label}
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+      <span className="truncate">{label}</span>
     </span>
   );
 }
@@ -22,22 +25,29 @@ export function DocHeader({
   code,
   title,
   sub,
+  actions,
 }: {
   code?: string;
   title: string;
   sub?: string;
+  actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 flex items-start justify-between border-b-2 border-ink pb-3">
-      <div>
-        <h1 className="font-display text-[22px] font-bold text-ink">{title}</h1>
-        {sub && <p className="mt-0.5 text-[13px] text-muted">{sub}</p>}
-      </div>
-      {code && (
-        <div className="text-right font-mono text-[11px] leading-relaxed text-muted-light">
-          <div>DOC N° {code}</div>
+    <div className="mb-5 border-b-2 border-ink pb-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-lg font-bold text-ink sm:text-[22px]">{title}</h1>
+          {sub && <p className="mt-0.5 text-[12.5px] text-muted sm:text-[13px]">{sub}</p>}
         </div>
-      )}
+        {code && (
+          <div className="shrink-0 font-mono text-[10px] leading-relaxed text-muted-light sm:text-[11px]">
+            <div>DOC N° {code}</div>
+          </div>
+        )}
+      </div>
+      {actions ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">{actions}</div>
+      ) : null}
     </div>
   );
 }

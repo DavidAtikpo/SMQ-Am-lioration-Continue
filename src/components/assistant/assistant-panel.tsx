@@ -63,7 +63,7 @@ export function AssistantPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-[calc(100dvh-10rem)] flex-col lg:min-h-0">
       <DocHeader
         title="Assistant IA"
         sub="Copilote du pilotage, du suivi et de la planification du SMQ"
@@ -83,14 +83,14 @@ export function AssistantPanel() {
         ))}
       </div>
 
-      <div className="flex max-h-[440px] min-h-[320px] flex-1 flex-col gap-3 overflow-y-auto rounded-[10px] border-[1.5px] border-line bg-surface p-4">
+      <div className="flex min-h-[240px] flex-1 flex-col gap-3 overflow-y-auto rounded-[10px] border-[1.5px] border-line bg-surface p-3 sm:p-4 lg:max-h-[calc(100dvh-18rem)]">
         {messages.map((m, i) => (
           <div
             key={i}
             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[78%] rounded-[10px] px-3.5 py-2.5 ${
+              className={`max-w-[92%] rounded-[10px] px-3 py-2.5 sm:max-w-[78%] sm:px-3.5 ${
                 m.role === "user"
                   ? "bg-ink text-paper"
                   : "bg-paper-alt text-ink"
@@ -112,14 +112,14 @@ export function AssistantPanel() {
         <div ref={endRef} />
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <TextInput
           value={input}
           onChange={setInput}
           placeholder="Posez une question ou demandez une analyse…"
           className="flex-1"
         />
-        <Btn onClick={() => void send()} disabled={loading}>
+        <Btn onClick={() => void send()} disabled={loading} className="w-full sm:w-auto">
           <Send size={14} /> Envoyer
         </Btn>
       </div>

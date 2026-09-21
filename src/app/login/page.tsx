@@ -90,7 +90,7 @@ function LoginForm() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper px-4">
-      <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink text-paper">
             <Stamp size={18} />

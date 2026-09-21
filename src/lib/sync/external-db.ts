@@ -51,7 +51,7 @@ function createPool(url: string | undefined, label: string, fallbackSchema: stri
   return pool;
 }
 
-function getCordisteDatabaseUrl(): string | undefined {
+export function getCordisteDatabaseUrl(): string | undefined {
   return process.env.CORDISTE_DATABASE_URL ?? process.env.CATALOG_DATABASE_URL;
 }
 
@@ -72,7 +72,16 @@ export function getAgendaPool(): Pool | null {
 }
 
 export function schemaFromEnv(url: string | undefined, fallback: string): string {
-  if (!url) return fallback;
+  if (!url) {
+    if (fallback === "webirata") {
+      const cordisteUrl = getCordisteDatabaseUrl();
+      if (cordisteUrl) {
+        const match = cordisteUrl.match(/[?&]schema=([^&]+)/i);
+        return match ? decodeURIComponent(match[1]) : fallback;
+      }
+    }
+    return fallback;
+  }
   const match = url.match(/[?&]schema=([^&]+)/i);
   return match ? decodeURIComponent(match[1]) : fallback;
 }

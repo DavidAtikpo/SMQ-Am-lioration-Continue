@@ -1,9 +1,13 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CalendarClock,
+  ClipboardList,
   Clock,
+  Download,
+  GanttChart,
   GraduationCap,
   Loader2,
   RefreshCw,
@@ -30,16 +34,20 @@ import {
 } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
 import { COLORS } from "@/lib/constants";
-import { useSmqData } from "@/hooks/use-smq-data";
+import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
+import { SMQ_ZONE_LABELS } from "@/lib/smq-zone";
 import { daysUntil, fmtDate } from "@/lib/utils";
 import { useState } from "react";
 
 export function DashboardPanel() {
-  const { data, loading, error, refresh } = useSmqData();
+  const router = useRouter();
+  const { data, loading, error, refresh, zone } = useSmqFilteredData();
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText] = useState("");
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [downloadingGanttPdf, setDownloadingGanttPdf] = useState(false);
+  const [downloadingActionsPdf, setDownloadingActionsPdf] = useState(false);
 
   if (loading || !data) return <LoadingState error={error} onRetry={() => void refresh()} />;
 
@@ -106,6 +114,7 @@ export function DashboardPanel() {
       const res = await fetch("/api/sync", { method: "POST" });
       const json = (await res.json()) as {
         error?: string;
+        errors?: Record<string, string>;
         cordiste?: {
           nonConformites: { imported: number; updated: number };
           actions: { imported: number; updated: number };
@@ -123,7 +132,7 @@ export function DashboardPanel() {
         };
         qhse?: { created: number; existing: number };
       };
-      if (!res.ok) {
+      if (!res.ok && res.status !== 207) {
         setSyncMessage(json.error ?? "Synchronisation échouée.");
         return;
       }
@@ -133,6 +142,7 @@ export function DashboardPanel() {
       const sessions = json.agenda?.sessions;
       const removedTasks = json.agenda?.removed?.tasks ?? 0;
       const removedSessions = json.agenda?.removed?.sessions ?? 0;
+      const errorParts = Object.entries(json.errors ?? {}).map(([key, message]) => `${key}: ${message}`);
       setSyncMessage(
         [
           `Cordiste : ${nc?.imported ?? 0} NC + ${ca?.imported ?? 0} actions`,
@@ -140,6 +150,7 @@ export function DashboardPanel() {
           `Stagiaires : ${json.stagiaires?.imported ?? 0} indicateur(s) · Satisfaction : ${json.satisfaction?.imported ?? 0}`,
           `Processus : ${json.processus?.indicators?.imported ?? 0} KPI + ${json.processus?.actions?.imported ?? 0} action(s) délai`,
           `Calendrier QHSE : ${json.qhse?.created ?? 0} événement(s) créé(s)`,
+          ...errorParts,
         ].join(" · "),
       );
       await refresh();
@@ -147,6 +158,46 @@ export function DashboardPanel() {
       setSyncMessage("Impossible de synchroniser les sources externes.");
     } finally {
       setSyncLoading(false);
+    }
+  }
+
+  async function downloadPdf(path: string, fallbackName: string) {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error("PDF indisponible");
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fallbackName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadGanttPdf() {
+    setDownloadingGanttPdf(true);
+    try {
+      await downloadPdf(
+        "/api/agenda/gantt/pdf",
+        `gantt-agenda-${new Date().toISOString().slice(0, 10)}.pdf`,
+      );
+    } catch {
+      window.alert("Impossible de télécharger le PDF Gantt.");
+    } finally {
+      setDownloadingGanttPdf(false);
+    }
+  }
+
+  async function downloadActionsPdf() {
+    setDownloadingActionsPdf(true);
+    try {
+      await downloadPdf(
+        "/api/actions/pdf",
+        `audit-action-monitoring-${new Date().toISOString().slice(0, 10)}.pdf`,
+      );
+    } catch {
+      window.alert("Impossible de télécharger le PDF Actions.");
+    } finally {
+      setDownloadingActionsPdf(false);
     }
   }
 
@@ -170,9 +221,45 @@ export function DashboardPanel() {
   return (
     <div>
       <DocHeader
-        title="Tableau de bord"
-        sub="Vue d'ensemble du système d'amélioration continue (SMQ)"
+        title="SMQ C.IDES"
+        sub={`Vue d'ensemble du SMQ — périmètre ${SMQ_ZONE_LABELS[zone]}`}
         code="SMQ-DB"
+        actions={
+          <>
+            <Btn
+              kind="ghost"
+              className="px-2.5 py-1.5 text-xs"
+              onClick={() => router.push("/planification?view=gantt")}
+            >
+              <GanttChart size={14} /> Gantt Agenda
+            </Btn>
+            <Btn
+              kind="ghost"
+              className="px-2.5 py-1.5 text-xs"
+              onClick={() => router.push("/planification?view=tasks")}
+            >
+              <ClipboardList size={14} /> Tâches Agenda
+            </Btn>
+            <Btn
+              kind="ghost"
+              className="px-2.5 py-1.5 text-xs"
+              disabled={downloadingGanttPdf}
+              onClick={() => void downloadGanttPdf()}
+            >
+              <Download size={14} />
+              {downloadingGanttPdf ? "PDF Gantt…" : "PDF Gantt"}
+            </Btn>
+            <Btn
+              kind="ghost"
+              className="px-2.5 py-1.5 text-xs"
+              disabled={downloadingActionsPdf}
+              onClick={() => void downloadActionsPdf()}
+            >
+              <Download size={14} />
+              {downloadingActionsPdf ? "PDF Actions…" : "PDF Actions"}
+            </Btn>
+          </>
+        }
       />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -192,7 +279,7 @@ export function DashboardPanel() {
         </Btn>
       </div>
       {syncMessage && (
-        <div className="mb-5 rounded-[10px] border border-line bg-surface px-4 py-3 text-sm text-muted">
+        <div className="mb-5 break-words rounded-[10px] border border-line bg-surface px-4 py-3 text-sm text-muted">
           {syncMessage}
         </div>
       )}
@@ -250,7 +337,7 @@ export function DashboardPanel() {
                 return (
                   <div
                     key={e.id}
-                    className="flex items-center justify-between border-b border-line pb-2"
+                    className="flex flex-col gap-1 border-b border-line pb-2 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <div className="text-[13px] font-semibold">{e.type}</div>
@@ -277,7 +364,7 @@ export function DashboardPanel() {
       </div>
 
       <div className="rounded-[10px] bg-ink p-4.5 text-paper">
-        <div className="mb-2.5 flex items-center justify-between">
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-display text-sm font-bold">
             <Sparkles size={16} /> Synthèse IA du jour
           </div>

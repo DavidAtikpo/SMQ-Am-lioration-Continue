@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
-import { getCordistePool, schemaFromEnv, table, toIsoDate } from "@/lib/sync/external-db";
+import { getCordisteDatabaseUrl, getCordistePool, schemaFromEnv, table, toIsoDate } from "@/lib/sync/external-db";
 import { upsertIndicators } from "@/lib/sync/indicators-db";
+import { zoneFromStagiaireInscription } from "@/lib/smq-zone";
 import type { SyncResult } from "@/lib/sync/types";
 
 const DELAI_JOURS_ALERTE = 7;
@@ -8,6 +9,7 @@ const DELAI_JOURS_ALERTE = 7;
 type DemandeRow = {
   id: string;
   session: string;
+  pays: string | null;
   entreprise: string | null;
   nomCompletStagiaire: string | null;
   createdAt: Date;
@@ -21,7 +23,7 @@ export async function syncProcessusIndicators(): Promise<{
   const pool = getCordistePool();
   if (!pool) throw new Error("CORDISTE_DATABASE_URL manquant");
 
-  const schema = schemaFromEnv(process.env.CORDISTE_DATABASE_URL, "webirata");
+  const schema = schemaFromEnv(getCordisteDatabaseUrl(), "webirata");
   const tDemande = table(schema, "Demande");
   const tDevis = table(schema, "Devis");
   const tSuivi = table(schema, "DemandeSuivi");
@@ -97,7 +99,7 @@ export async function syncProcessusIndicators(): Promise<{
   const retardRows = (
     await pool.query<DemandeRow>(
       `
-      SELECT d.id, d.session, d.entreprise, d."nomCompletStagiaire", d."createdAt",
+      SELECT d.id, d.session, d.pays, d.entreprise, d."nomCompletStagiaire", d."createdAt",
              EXTRACT(day FROM NOW() - d."createdAt")::int AS jours_attente
       FROM ${tDemande} d
       WHERE d.statut = 'EN_ATTENTE'
@@ -120,6 +122,7 @@ export async function syncProcessusIndicators(): Promise<{
 
   for (const row of retardRows) {
     const smqId = `PROC-D-${row.id.slice(-8).toUpperCase()}`;
+    const zone = zoneFromStagiaireInscription(row.pays);
     const description = [
       `Demande en attente depuis ${row.jours_attente} jours — sans devis.`,
       `Session : ${row.session}`,
@@ -138,6 +141,7 @@ export async function syncProcessusIndicators(): Promise<{
           echeance: toIsoDate(new Date()),
           statut: "À faire",
           priorite: row.jours_attente >= 14 ? "Haute" : "Moyenne",
+          zone,
         },
         create: {
           id: smqId,
@@ -152,6 +156,7 @@ export async function syncProcessusIndicators(): Promise<{
           priorite: row.jours_attente >= 14 ? "Haute" : "Moyenne",
           efficacite: "",
           ncId: null,
+          zone,
         },
       });
       if (existing) actionResult.updated += 1;

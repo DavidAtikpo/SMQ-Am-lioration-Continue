@@ -17,7 +17,8 @@ import {
 } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
 import { NC_GRAVITES, NC_SOURCES, NC_STATUTS } from "@/lib/constants";
-import { useSmqData } from "@/hooks/use-smq-data";
+import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
+import { SMQ_ZONE_LABELS } from "@/lib/smq-zone";
 import type { NonConformite } from "@/lib/types";
 import { fmtDate, todayISO } from "@/lib/utils";
 
@@ -48,7 +49,7 @@ function emptyNC(serviceId: string): NcForm {
 
 export function NcPanel() {
   const router = useRouter();
-  const { data, loading, error, refresh } = useSmqData();
+  const { data, loading, error, refresh, zone } = useSmqFilteredData();
   const [form, setForm] = useState<NcForm | null>(null);
   const [filterStatut, setFilterStatut] = useState("Toutes");
   const [filterService, setFilterService] = useState("Tous");
@@ -122,7 +123,7 @@ export function NcPanel() {
     <div>
       <DocHeader
         title="Non-conformités"
-        sub="Recueil, traitement et clôture des non-conformités, tous services"
+        sub={`Recueil et suivi des NC — périmètre ${SMQ_ZONE_LABELS[zone]}`}
         code="SMQ-NC"
       />
 
@@ -131,11 +132,13 @@ export function NcPanel() {
           value={filterStatut}
           onChange={setFilterStatut}
           options={["Toutes", ...NC_STATUTS]}
+          className="w-full sm:w-auto sm:min-w-[140px]"
         />
         <SelectInput
           value={filterService}
           onChange={setFilterService}
           options={["Tous", ...services.map((s) => s.name)]}
+          className="w-full sm:w-auto sm:min-w-[160px]"
         />
         <div className="flex-1" />
         <Btn onClick={() => setForm(emptyNC(services[0]?.id ?? ""))}>
@@ -251,9 +254,9 @@ export function NcPanel() {
             const linked = actions.filter((a) => a.origine === n.id || a.ncId === n.id);
             return (
               <div key={n.id} className="card">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-mono text-[11.5px] text-muted-light">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
                       {n.id} · {fmtDate(n.date)} · {n.service.name}
                     </div>
                     <CordisteRichText id={n.id} text={n.description} className="my-1" />

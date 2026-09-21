@@ -14,6 +14,7 @@ export type NonConformite = {
   description: string;
   causeRacine: string;
   responsable: string;
+  zone: string;
 };
 
 export type SmqAction = {
@@ -30,6 +31,7 @@ export type SmqAction = {
   priorite: string;
   efficacite: string;
   ncId: string | null;
+  zone: string;
 };
 
 export type SmqEvent = {

@@ -43,14 +43,14 @@ export function ServicesPanel() {
         code="SMQ-SVC"
       />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <TextInput
           value={newService}
           onChange={setNewService}
           placeholder="Ajouter un service (ex : Achats, SAV...)"
           className="flex-1"
         />
-        <Btn onClick={() => void add()}>
+        <Btn onClick={() => void add()} className="w-full sm:w-auto">
           <Plus size={14} /> Ajouter
         </Btn>
       </div>

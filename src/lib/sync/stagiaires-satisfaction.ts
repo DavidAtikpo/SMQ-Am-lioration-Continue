@@ -1,4 +1,4 @@
-import { getCordistePool, schemaFromEnv, table } from "@/lib/sync/external-db";
+import { getCordisteDatabaseUrl, getCordistePool, schemaFromEnv, table } from "@/lib/sync/external-db";
 import { upsertIndicators } from "@/lib/sync/indicators-db";
 import type { IndicatorUpsert, SyncResult } from "@/lib/sync/types";
 
@@ -6,7 +6,7 @@ export async function syncStagiairesIndicators(): Promise<SyncResult> {
   const pool = getCordistePool();
   if (!pool) throw new Error("CORDISTE_DATABASE_URL manquant");
 
-  const schema = schemaFromEnv(process.env.CORDISTE_DATABASE_URL, "webirata");
+  const schema = schemaFromEnv(getCordisteDatabaseUrl(), "webirata");
   const tExam = table(schema, "IrataExamValidation");
   const tKpi = table(schema, "KpiDonneesManuelles");
   const year = new Date().getFullYear();
@@ -118,7 +118,7 @@ export async function syncSatisfactionIndicators(): Promise<SyncResult> {
   const pool = getCordistePool();
   if (!pool) throw new Error("CORDISTE_DATABASE_URL manquant");
 
-  const schema = schemaFromEnv(process.env.CORDISTE_DATABASE_URL, "webirata");
+  const schema = schemaFromEnv(getCordisteDatabaseUrl(), "webirata");
   const tChaud = table(schema, "SatisfactionStagiaireChaud");
   const tFroid = table(schema, "SatisfactionStagiaireFroid");
   const tEnt = table(schema, "SatisfactionEntrepriseFroid");
@@ -129,8 +129,10 @@ export async function syncSatisfactionIndicators(): Promise<SyncResult> {
       `
       SELECT COUNT(*)::text AS total,
         COUNT(*) FILTER (
-          WHERE lower(coalesce("q4Recommander", '')) LIKE '%oui%'
-            OR lower(coalesce("q4Recommander", '')) LIKE '%yes%'
+          WHERE lower(coalesce("q3CertificationRecue", '')) LIKE '%oui%'
+            OR lower(coalesce("q3CertificationRecue", '')) LIKE '%yes%'
+            OR lower(coalesce("q1LienFacile", '')) LIKE '%oui%'
+            OR lower(coalesce("q1LienFacile", '')) LIKE '%yes%'
         )::text AS recommend
       FROM ${tChaud}
       WHERE "createdAt" >= $1::date

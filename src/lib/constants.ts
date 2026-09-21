@@ -75,7 +75,7 @@ Tes missions :
 Réponds toujours en français, de façon concise, structurée et directement actionnable. Appuie-toi sur les données JSON fournies ; si insuffisantes, dis-le clairement sans inventer de chiffres.`;
 
 export const NAV = [
-  { key: "dashboard", href: "/", label: "Tableau de bord" },
+  { key: "dashboard", href: "/", label: "SMQ C.IDES" },
   { key: "nc", href: "/non-conformites", label: "Non-conformités" },
   { key: "actions", href: "/actions", label: "Actions" },
   { key: "planning", href: "/planification", label: "Planification" },

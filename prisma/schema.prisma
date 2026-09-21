@@ -26,6 +26,8 @@ model NonConformite {
   description String
   causeRacine String   @default("")
   responsable String   @default("")
+  /// France | Togo | vide = global (visible en filtre Monde uniquement)
+  zone        String   @default("")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   actions     Action[]
@@ -46,6 +48,8 @@ model Action {
   efficacite      String         @default("")
   ncId            String?
   nonConformite   NonConformite? @relation(fields: [ncId], references: [id], onDelete: SetNull)
+  /// France | Togo | vide — héritée de la NC liée si absente
+  zone            String         @default("")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }

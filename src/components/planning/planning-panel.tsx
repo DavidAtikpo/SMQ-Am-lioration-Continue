@@ -327,9 +327,9 @@ export function PlanningPanel() {
         <div className="flex flex-col gap-2.5">
           {events.map((e) => (
             <div key={e.id} className="card">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-mono text-[11.5px] text-muted-light">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
                     {e.id} · {fmtDate(e.date)}
                   </div>
                   <div className="my-1 text-sm font-semibold">{e.type}</div>
@@ -341,7 +341,7 @@ export function PlanningPanel() {
                 </div>
                 <StatusStamp label={e.statut} />
               </div>
-              <div className="mt-2.5 flex gap-2">
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 <Btn
                   kind="ghost"
                   className="px-2.5 py-1.5 text-xs"

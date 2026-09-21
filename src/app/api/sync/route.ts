@@ -13,31 +13,33 @@ export async function POST() {
   const denied = await assertAdminApi();
   if (denied) return denied;
 
-  try {
-    const [cordiste, agenda, stagiaires, satisfaction, processus, qhse] = await Promise.all([
-      syncCordiste(),
-      syncAgenda(),
-      syncStagiairesIndicators(),
-      syncSatisfactionIndicators(),
-      syncProcessusIndicators(),
-      ensureQhseCalendar(),
-    ]);
+  const settled = await Promise.allSettled([
+    syncCordiste(),
+    syncAgenda(),
+    syncStagiairesIndicators(),
+    syncSatisfactionIndicators(),
+    syncProcessusIndicators(),
+    ensureQhseCalendar(),
+  ]);
 
-    return NextResponse.json({
-      ok: true,
-      cordiste,
-      agenda,
-      stagiaires,
-      satisfaction,
-      processus,
-      qhse,
-      syncedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur de synchronisation" },
-      { status: 500 },
-    );
-  }
+  const labels = ["cordiste", "agenda", "stagiaires", "satisfaction", "processus", "qhse"] as const;
+  const payload: Record<string, unknown> = {
+    ok: settled.every((item) => item.status === "fulfilled"),
+    syncedAt: new Date().toISOString(),
+    errors: {} as Record<string, string>,
+  };
+
+  settled.forEach((item, index) => {
+    const key = labels[index];
+    if (item.status === "fulfilled") {
+      payload[key] = item.value;
+    } else {
+      const message = item.reason instanceof Error ? item.reason.message : String(item.reason);
+      (payload.errors as Record<string, string>)[key] = message;
+      console.error(`Sync ${key} failed:`, item.reason);
+    }
+  });
+
+  const hasPartialFailure = Object.keys(payload.errors as Record<string, string>).length > 0;
+  return NextResponse.json(payload, { status: hasPartialFailure && !payload.ok ? 207 : 200 });
 }

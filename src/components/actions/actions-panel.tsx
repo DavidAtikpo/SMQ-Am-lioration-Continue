@@ -21,7 +21,8 @@ import {
   ACTION_TYPES,
   COLORS,
 } from "@/lib/constants";
-import { useSmqData } from "@/hooks/use-smq-data";
+import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
+import { SMQ_ZONE_LABELS } from "@/lib/smq-zone";
 import { daysUntil, fmtDate, todayISO } from "@/lib/utils";
 
 type ActionForm = {
@@ -57,7 +58,7 @@ function emptyAction(serviceId: string): ActionForm {
 
 export function ActionsPanel() {
   const searchParams = useSearchParams();
-  const { data, loading, error, refresh } = useSmqData();
+  const { data, loading, error, refresh, zone } = useSmqFilteredData();
   const [form, setForm] = useState<ActionForm | null>(null);
   const [prefillNcId, setPrefillNcId] = useState<string | null>(null);
   const [filterStatut, setFilterStatut] = useState("Toutes");
@@ -123,17 +124,18 @@ export function ActionsPanel() {
     <div>
       <DocHeader
         title="Actions correctives, préventives et d'amélioration"
-        sub="Plan d'actions du SMQ — tous services"
+        sub={`Plan d'actions du SMQ — périmètre ${SMQ_ZONE_LABELS[zone]}`}
         code="ENR-CIFRA-QHSE 005"
       />
 
-      <div className="mb-4 flex items-center gap-2.5">
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <SelectInput
           value={filterStatut}
           onChange={setFilterStatut}
           options={["Toutes", ...ACTION_STATUTS]}
+          className="w-full sm:w-auto sm:min-w-[160px]"
         />
-        <div className="flex-1" />
+        <div className="hidden flex-1 sm:block" />
         <Btn kind="ghost" disabled={downloadingPdf} onClick={() => void downloadPdf()}>
           <Download size={14} />
           {downloadingPdf ? "PDF…" : "Télécharger PDF"}
@@ -260,9 +262,9 @@ export function ActionsPanel() {
                 className="card"
                 style={{ borderColor: late ? COLORS.rust : undefined }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-mono text-[11.5px] text-muted-light">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
                       {a.id} · {a.type} · {a.service.name}
                       {a.origine && ` · origine ${a.origine}`}
                     </div>
@@ -277,7 +279,7 @@ export function ActionsPanel() {
                   </div>
                   <StatusStamp label={a.statut} />
                 </div>
-                <div className="mt-2.5 flex gap-2">
+                <div className="mt-2.5 flex flex-wrap gap-2">
                   <Btn
                     kind="ghost"
                     className="px-2.5 py-1.5 text-xs"

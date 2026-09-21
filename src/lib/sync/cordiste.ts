@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getCordistePool, fullName, schemaFromEnv, table, toIsoDate } from "@/lib/sync/external-db";
+import { getCordisteDatabaseUrl, getCordistePool, fullName, schemaFromEnv, table, toIsoDate } from "@/lib/sync/external-db";
 import {
   mapActionPriorite,
   mapActionStatut,
@@ -11,6 +11,8 @@ import {
   SYNC_SERVICES,
 } from "@/lib/sync/mappers";
 import { formatCordisteDescription } from "@/lib/cordiste-text";
+import { ncInscriptionPaysSql } from "@/lib/sync/cordiste-zone-sql";
+import { zoneFromStagiaireInscription } from "@/lib/smq-zone";
 import type { SyncResult } from "@/lib/sync/types";
 
 type CordisteNcRow = {
@@ -27,6 +29,8 @@ type CordisteNcRow = {
   resp_prenom: string | null;
   det_nom: string | null;
   det_prenom: string | null;
+  sessionId: string | null;
+  inscription_pays: string | null;
 };
 
 type CordisteActionRow = {
@@ -68,17 +72,19 @@ export async function syncCordiste(): Promise<{
   const ncResult: SyncResult = { imported: 0, updated: 0, skipped: 0, errors: [] };
   const actionResult: SyncResult = { imported: 0, updated: 0, skipped: 0, errors: [] };
 
-  const schema = schemaFromEnv(process.env.CORDISTE_DATABASE_URL, "webirata");
+  const schema = schemaFromEnv(getCordisteDatabaseUrl(), "webirata");
   const tNc = table(schema, "NonConformite");
   const tUser = table(schema, "User");
   const tAction = table(schema, "ActionCorrective");
+  const inscriptionPaysSql = ncInscriptionPaysSql(schema, "nc");
 
   const ncRows = (
     await pool.query<CordisteNcRow>(`
       SELECT nc.id, nc.numero, nc.titre, nc.description, nc.type, nc.gravite, nc.statut,
-             nc."dateDetection", nc."analysisCauses",
+             nc."dateDetection", nc."analysisCauses", nc."sessionId",
              resp.nom AS resp_nom, resp.prenom AS resp_prenom,
-             det.nom AS det_nom, det.prenom AS det_prenom
+             det.nom AS det_nom, det.prenom AS det_prenom,
+             ${inscriptionPaysSql} AS inscription_pays
       FROM ${tNc} nc
       LEFT JOIN ${tUser} resp ON nc."responsableId" = resp.id
       LEFT JOIN ${tUser} det ON nc."detecteurId" = det.id
@@ -88,6 +94,7 @@ export async function syncCordiste(): Promise<{
   ).rows;
 
   const ncIdByCordisteId = new Map<string, string>();
+  const zoneByCordisteNcId = new Map<string, string>();
 
   for (const row of ncRows) {
     const statut = mapNcStatut(row.statut);
@@ -101,6 +108,8 @@ export async function syncCordiste(): Promise<{
     const responsable =
       fullName(row.resp_nom, row.resp_prenom) ||
       fullName(row.det_nom, row.det_prenom);
+    const zone = zoneFromStagiaireInscription(row.inscription_pays);
+    zoneByCordisteNcId.set(row.id, zone);
 
     try {
       const existing = await prisma.nonConformite.findUnique({ where: { id: smqId } });
@@ -115,6 +124,7 @@ export async function syncCordiste(): Promise<{
           description: formatCordisteDescription(row.titre, row.description),
           causeRacine: row.analysisCauses ?? "",
           responsable,
+          zone,
         },
         create: {
           id: smqId,
@@ -126,6 +136,7 @@ export async function syncCordiste(): Promise<{
           description: formatCordisteDescription(row.titre, row.description),
           causeRacine: row.analysisCauses ?? "",
           responsable,
+          zone,
         },
       });
       if (existing) ncResult.updated += 1;
@@ -161,6 +172,8 @@ export async function syncCordiste(): Promise<{
       ? ncIdByCordisteId.get(row.nonConformiteId) ??
         (row.nc_numero ? `CORD-${row.nc_numero}` : null)
       : null;
+    const zone =
+      (row.nonConformiteId ? zoneByCordisteNcId.get(row.nonConformiteId) : undefined) ?? "";
 
     try {
       const existing = await prisma.action.findUnique({ where: { id: smqId } });
@@ -178,6 +191,7 @@ export async function syncCordiste(): Promise<{
           priorite: mapActionPriorite(row.priorite),
           efficacite: mapEfficacite(row.efficacite, row.resultats),
           ncId,
+          zone,
         },
         create: {
           id: smqId,
@@ -192,6 +206,7 @@ export async function syncCordiste(): Promise<{
           priorite: mapActionPriorite(row.priorite),
           efficacite: mapEfficacite(row.efficacite, row.resultats),
           ncId,
+          zone,
         },
       });
       if (existing) actionResult.updated += 1;
