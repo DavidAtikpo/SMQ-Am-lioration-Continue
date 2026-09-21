@@ -6,7 +6,6 @@ import { Check, ClipboardCheck, Download, Plus, X } from "lucide-react";
 import { CordisteRichText } from "@/components/ui/cordiste-rich-text";
 import {
   Btn,
-  DocHeader,
   EmptyState,
   Field,
   LoadingState,
@@ -21,8 +20,8 @@ import {
   ACTION_TYPES,
   COLORS,
 } from "@/lib/constants";
+import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
-import { SMQ_ZONE_LABELS } from "@/lib/smq-zone";
 import { daysUntil, fmtDate, todayISO } from "@/lib/utils";
 
 type ActionForm = {
@@ -58,7 +57,7 @@ function emptyAction(serviceId: string): ActionForm {
 
 export function ActionsPanel() {
   const searchParams = useSearchParams();
-  const { data, loading, error, refresh, zone } = useSmqFilteredData();
+  const { data, loading, error, refresh } = useSmqFilteredData();
   const [form, setForm] = useState<ActionForm | null>(null);
   const [prefillNcId, setPrefillNcId] = useState<string | null>(null);
   const [filterStatut, setFilterStatut] = useState("Toutes");
@@ -122,9 +121,9 @@ export function ActionsPanel() {
 
   return (
     <div>
-      <DocHeader
-        title="Actions correctives, préventives et d'amélioration"
-        sub={`Plan d'actions du SMQ — périmètre ${SMQ_ZONE_LABELS[zone]}`}
+      <SmqPageHeader
+        title="Actions"
+        sub="Plan d'actions correctives, préventives et d'amélioration"
         code="ENR-CIFRA-QHSE 005"
       />
 

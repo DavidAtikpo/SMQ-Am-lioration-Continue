@@ -4,7 +4,6 @@ import { useState } from "react";
 import { CalendarClock, Check, Loader2, Plus, Sparkles, X } from "lucide-react";
 import {
   Btn,
-  DocHeader,
   EmptyState,
   Field,
   LoadingState,
@@ -158,13 +157,7 @@ export function PlanningPanel() {
 
   return (
     <div>
-      <DocHeader
-        title="Planification SMQ"
-        sub={`Réunions, audits internes et revue de direction — année ${year}`}
-        code="SMQ-PLAN"
-      />
-
-      <div className="mb-5 grid grid-cols-1 gap-3.5 md:grid-cols-3">
+      <div className="mb-4 grid grid-cols-1 gap-3.5 md:grid-cols-3">
         {rythme.map((r) => (
           <div key={r.label} className="card">
             <div className="text-[12.5px] font-semibold text-muted">{r.label}</div>

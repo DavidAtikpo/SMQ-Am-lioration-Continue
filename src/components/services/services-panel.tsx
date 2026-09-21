@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Building2, Plus, X } from "lucide-react";
 import {
   Btn,
-  DocHeader,
   LoadingState,
   TextInput,
 } from "@/components/ui";
+import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { useSmqData } from "@/hooks/use-smq-data";
 
 export function ServicesPanel() {
@@ -37,9 +37,9 @@ export function ServicesPanel() {
 
   return (
     <div>
-      <DocHeader
+      <SmqPageHeader
         title="Services"
-        sub="Périmètre de l'amélioration continue — l'ensemble des fonctions de l'entreprise"
+        sub="Périmètre de l'amélioration continue — toutes les fonctions"
         code="SMQ-SVC"
       />
 

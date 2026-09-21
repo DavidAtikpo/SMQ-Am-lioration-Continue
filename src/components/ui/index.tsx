@@ -1,6 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
+import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { STATUT_COLOR } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ export function StatusStamp({ label, className }: { label: string; className?: s
   );
 }
 
+/** @deprecated Préférer SmqPageHeader — conservé pour compatibilité. */
 export function DocHeader({
   code,
   title,
@@ -31,25 +33,9 @@ export function DocHeader({
   title: string;
   sub?: string;
   actions?: React.ReactNode;
+  compact?: boolean;
 }) {
-  return (
-    <div className="mb-5 border-b-2 border-ink pb-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-lg font-bold text-ink sm:text-[22px]">{title}</h1>
-          {sub && <p className="mt-0.5 text-[12.5px] text-muted sm:text-[13px]">{sub}</p>}
-        </div>
-        {code && (
-          <div className="shrink-0 font-mono text-[10px] leading-relaxed text-muted-light sm:text-[11px]">
-            <div>DOC N° {code}</div>
-          </div>
-        )}
-      </div>
-      {actions ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">{actions}</div>
-      ) : null}
-    </div>
-  );
+  return <SmqPageHeader title={title} sub={sub} code={code} actions={actions} />;
 }
 
 export function Field({

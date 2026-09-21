@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Send } from "lucide-react";
-import { Btn, DocHeader, TextInput } from "@/components/ui";
+import { SmqPageHeader } from "@/components/layout/smq-page-header";
+import { Btn, TextInput } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -64,7 +65,7 @@ export function AssistantPanel() {
 
   return (
     <div className="flex min-h-[calc(100dvh-10rem)] flex-col lg:min-h-0">
-      <DocHeader
+      <SmqPageHeader
         title="Assistant IA"
         sub="Copilote du pilotage, du suivi et de la planification du SMQ"
         code="SMQ-IA"

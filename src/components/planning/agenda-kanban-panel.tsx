@@ -22,7 +22,7 @@ import {
 } from "@/lib/agenda/kanban-config";
 import type { AgendaGanttPayload, AgendaGanttTask } from "@/lib/agenda/types";
 import { COLORS } from "@/lib/constants";
-import { Btn, DocHeader, EmptyState, LoadingState, StatusStamp } from "@/components/ui";
+import { Btn, EmptyState, LoadingState, StatusStamp } from "@/components/ui";
 
 function KanbanTaskCard({
   task,
@@ -214,14 +214,8 @@ export function AgendaKanbanPanel() {
   const totalTasks = data?.tasks.length ?? 0;
 
   return (
-    <div>
-      <DocHeader
-        title="Tâches Agenda"
-        sub="Kanban Neurix Agenda (Laurent ↔ David) — lecture seule"
-        code="SMQ-PLAN-TASKS"
-      />
-
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <div className="text-sm text-muted">
           <span className="font-semibold text-ink">{totalTasks}</span> tâche{totalTasks > 1 ? "s" : ""}
           {data?.syncedAt ? (
@@ -250,9 +244,9 @@ export function AgendaKanbanPanel() {
           text="Aucune tâche Agenda dans le périmètre SMQ (Laurent ↔ David). Vérifiez AGENDA_DATABASE_URL."
         />
       ) : (
-        <div className="card overflow-hidden p-0">
+        <div className="flex min-h-0 flex-1 flex-col">
           {/* Mobile : onglets de colonnes */}
-          <div className="flex gap-1 overflow-x-auto border-b border-line bg-paper-alt px-2 py-2 lg:hidden">
+          <div className="mb-3 flex shrink-0 gap-1 overflow-x-auto rounded-[10px] border border-line bg-paper-alt px-2 py-2 lg:hidden">
             {KANBAN_COLUMNS.map((col) => {
               const active = mobileStatusTab === col.id;
               const count = tasksByStatus[col.id].length;
@@ -288,7 +282,7 @@ export function AgendaKanbanPanel() {
           </div>
 
           {/* Mobile : colonne active */}
-          <div className="min-h-[420px] bg-paper p-3 lg:hidden">
+          <div className="flex min-h-0 flex-1 flex-col lg:hidden">
             {(() => {
               const col = KANBAN_COLUMNS.find((c) => c.id === mobileStatusTab)!;
               const colTasks = tasksByStatus[mobileStatusTab];
@@ -319,14 +313,14 @@ export function AgendaKanbanPanel() {
           </div>
 
           {/* Desktop : Kanban horizontal */}
-          <div className="hidden min-h-[520px] overflow-x-auto bg-paper p-4 lg:block">
-            <div className="flex h-full min-w-max gap-4 pb-2">
+          <div className="kanban-scroll hidden min-h-0 flex-1 overflow-x-auto lg:block">
+            <div className="flex h-full min-w-max items-stretch gap-4 pb-1">
               {KANBAN_COLUMNS.map((col) => {
                 const colTasks = tasksByStatus[col.id];
                 return (
-                  <div key={col.id} className="flex w-72 shrink-0 flex-col gap-3">
+                  <div key={col.id} className="flex h-full w-72 shrink-0 flex-col gap-3">
                     <ColumnHeader col={col} count={colTasks.length} />
-                    <div className="max-h-[calc(100vh-280px)] flex-1 space-y-3 overflow-y-auto">
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
                       {colTasks.length === 0 ? (
                         <div className="rounded-[10px] border-[1.5px] border-dashed border-line p-5 text-center">
                           <p className="text-xs text-muted-light">Aucune tâche</p>

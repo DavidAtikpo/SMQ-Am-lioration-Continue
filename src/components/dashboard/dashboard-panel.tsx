@@ -28,20 +28,19 @@ import {
 } from "recharts";
 import {
   Btn,
-  DocHeader,
   EmptyState,
   LoadingState,
 } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
+import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { COLORS } from "@/lib/constants";
 import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
-import { SMQ_ZONE_LABELS } from "@/lib/smq-zone";
 import { daysUntil, fmtDate } from "@/lib/utils";
 import { useState } from "react";
 
 export function DashboardPanel() {
   const router = useRouter();
-  const { data, loading, error, refresh, zone } = useSmqFilteredData();
+  const { data, loading, error, refresh } = useSmqFilteredData();
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText] = useState("");
   const [syncLoading, setSyncLoading] = useState(false);
@@ -220,9 +219,9 @@ export function DashboardPanel() {
 
   return (
     <div>
-      <DocHeader
+      <SmqPageHeader
         title="SMQ C.IDES"
-        sub={`Vue d'ensemble du SMQ — périmètre ${SMQ_ZONE_LABELS[zone]}`}
+        sub="Vue d'ensemble du SMQ"
         code="SMQ-DB"
         actions={
           <>

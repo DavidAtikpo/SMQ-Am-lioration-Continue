@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { CordisteRichText } from "@/components/ui/cordiste-rich-text";
 import {
   Btn,
-  DocHeader,
   EmptyState,
   Field,
   LoadingState,
@@ -16,9 +15,9 @@ import {
   TextInput,
 } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
+import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { NC_GRAVITES, NC_SOURCES, NC_STATUTS } from "@/lib/constants";
 import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
-import { SMQ_ZONE_LABELS } from "@/lib/smq-zone";
 import type { NonConformite } from "@/lib/types";
 import { fmtDate, todayISO } from "@/lib/utils";
 
@@ -49,7 +48,7 @@ function emptyNC(serviceId: string): NcForm {
 
 export function NcPanel() {
   const router = useRouter();
-  const { data, loading, error, refresh, zone } = useSmqFilteredData();
+  const { data, loading, error, refresh } = useSmqFilteredData();
   const [form, setForm] = useState<NcForm | null>(null);
   const [filterStatut, setFilterStatut] = useState("Toutes");
   const [filterService, setFilterService] = useState("Tous");
@@ -121,9 +120,9 @@ export function NcPanel() {
 
   return (
     <div>
-      <DocHeader
+      <SmqPageHeader
         title="Non-conformités"
-        sub={`Recueil et suivi des NC — périmètre ${SMQ_ZONE_LABELS[zone]}`}
+        sub="Recueil et suivi des NC"
         code="SMQ-NC"
       />
 

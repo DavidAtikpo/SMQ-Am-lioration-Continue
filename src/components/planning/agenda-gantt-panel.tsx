@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, GanttChart, Loader2, RefreshCw } from "lucide-react";
-import { Btn, DocHeader, EmptyState, LoadingState, StatusStamp } from "@/components/ui";
+import { Btn, EmptyState, LoadingState, StatusStamp } from "@/components/ui";
 import { barGeometry, ganttRangeMs } from "@/lib/agenda/gantt-rows";
 import type { AgendaGanttPayload, GanttRow } from "@/lib/agenda/types";
 import { COLORS } from "@/lib/constants";
@@ -136,13 +136,7 @@ export function AgendaGanttPanel({ initialFilter = "all" }: { initialFilter?: Ga
 
   return (
     <div>
-      <DocHeader
-        title="Diagramme de Gantt — Neurix Agenda"
-        sub="Tâches et sessions de formation synchronisées depuis la base Agenda"
-        code="SMQ-PLAN-GANTT"
-      />
-
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value as GanttFilter)}
