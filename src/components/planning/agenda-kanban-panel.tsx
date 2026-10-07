@@ -23,6 +23,7 @@ import {
 import type { AgendaGanttPayload, AgendaGanttTask } from "@/lib/agenda/types";
 import { COLORS } from "@/lib/constants";
 import { Btn, EmptyState, LoadingState, StatusStamp } from "@/components/ui";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 
 function KanbanTaskCard({
   task,
@@ -163,6 +164,7 @@ async function fetchAgendaGantt(): Promise<{
 }
 
 export function AgendaKanbanPanel() {
+  const { t, locale } = useSmqLocale();
   const [data, setData] = useState<AgendaGanttPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -217,18 +219,20 @@ export function AgendaKanbanPanel() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2">
         <div className="text-sm text-muted">
-          <span className="font-semibold text-ink">{totalTasks}</span> tâche{totalTasks > 1 ? "s" : ""}
+          <span className="font-semibold text-ink">{totalTasks}</span>{" "}
+          {totalTasks > 1 ? t("kanbanTasksPlural") : t("kanbanTasks")}
           {data?.syncedAt ? (
             <span className="text-muted-light">
               {" "}
-              · MAJ {new Date(data.syncedAt).toLocaleString("fr-FR")}
+              · {t("lastUpdated")}{" "}
+              {new Date(data.syncedAt).toLocaleString(locale === "en" ? "en-GB" : "fr-FR")}
             </span>
           ) : null}
         </div>
         <div className="flex-1" />
         <Btn kind="ghost" disabled={loading} onClick={() => void load()}>
           {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          Actualiser
+          {t("refresh")}
         </Btn>
       </div>
 
@@ -241,7 +245,7 @@ export function AgendaKanbanPanel() {
       {totalTasks === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          text="Aucune tâche Agenda dans le périmètre SMQ (Laurent ↔ David). Vérifiez AGENDA_DATABASE_URL."
+          text={t("kanbanEmpty")}
         />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">

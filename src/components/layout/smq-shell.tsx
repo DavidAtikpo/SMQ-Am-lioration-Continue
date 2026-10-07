@@ -22,7 +22,11 @@ import {
 import { NAV } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { SmqProvider } from "@/hooks/use-smq-data";
+import { SmqLocaleProvider, useSmqLocale } from "@/hooks/use-smq-locale";
 import { SmqZoneProvider } from "@/hooks/use-smq-zone";
+import { SmqLocaleSwitch } from "@/components/layout/smq-locale-switch";
+import { SmqHtmlLang } from "@/components/layout/smq-html-lang";
+import type { SmqNavKey } from "@/lib/smq-i18n-ui";
 
 const SIDEBAR_COLLAPSED_KEY = "smq-sidebar-collapsed";
 
@@ -42,6 +46,8 @@ function SidebarNav({
   onToggleCollapse,
   onNavigate,
   className,
+  t,
+  nav,
 }: {
   pathname: string;
   adminName: string;
@@ -49,6 +55,8 @@ function SidebarNav({
   onToggleCollapse: () => void;
   onNavigate?: () => void;
   className?: string;
+  t: ReturnType<typeof useSmqLocale>["t"];
+  nav: ReturnType<typeof useSmqLocale>["nav"];
 }) {
   return (
     <aside
@@ -68,18 +76,23 @@ function SidebarNav({
           <Stamp size={18} className="shrink-0" />
           {!collapsed ? (
             <div className="font-display text-sm font-bold leading-tight">
-              SMQ · Amélioration
-              <br />
-              Continue
+              {t("brandTitle")}
             </div>
           ) : null}
         </div>
+        <SmqLocaleSwitch
+          variant="dark"
+          className={cn(
+            "mb-1 justify-center",
+            collapsed ? "mx-0 w-full scale-90" : "mx-2 w-full",
+          )}
+        />
         <button
           type="button"
           onClick={onToggleCollapse}
           className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#C9C4B4] transition-colors hover:bg-white/10 hover:text-white lg:flex"
-          aria-label={collapsed ? "Agrandir le menu" : "Réduire le menu"}
-          title={collapsed ? "Agrandir le menu" : "Réduire le menu"}
+          aria-label={collapsed ? t("expandMenu") : t("collapseMenu")}
+          title={collapsed ? t("expandMenu") : t("collapseMenu")}
         >
           {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
         </button>
@@ -87,6 +100,7 @@ function SidebarNav({
 
       {NAV.map((item) => {
         const Icon = ICONS[item.key];
+        const label = nav(item.key as SmqNavKey);
         const active =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
 
@@ -95,8 +109,8 @@ function SidebarNav({
             key={item.key}
             href={item.href}
             onClick={onNavigate}
-            title={collapsed ? item.label : undefined}
-            aria-label={item.label}
+            title={collapsed ? label : undefined}
+            aria-label={label}
             className={cn(
               "flex items-center rounded-lg py-2.5 text-[13.5px] font-semibold transition-colors",
               collapsed ? "justify-center px-2" : "gap-2.5 px-2.5",
@@ -106,7 +120,7 @@ function SidebarNav({
             <Icon size={16} className="shrink-0" />
             {!collapsed ? (
               <>
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{label}</span>
                 {active ? <ChevronRight size={13} className="ml-auto shrink-0" /> : null}
               </>
             ) : null}
@@ -123,31 +137,30 @@ function SidebarNav({
         {!collapsed ? (
           <>
             <p className="truncate text-[11px] font-semibold text-white/90">{adminName}</p>
-            <p className="mt-1 text-[10.5px] leading-relaxed text-[#8A8577]">
-              Accès administrateur · SMQ interne
-            </p>
+            <p className="mt-1 text-[10.5px] leading-relaxed text-[#8A8577]">{t("adminAccess")}</p>
           </>
         ) : null}
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
-          title="Déconnexion"
+          title={t("signOut")}
           className={cn(
             "mt-3 flex w-full items-center rounded-lg py-2 text-[12px] font-semibold text-[#C9C4B4] transition-colors hover:bg-white/5 hover:text-white",
             collapsed ? "justify-center px-2" : "gap-2 px-2 text-left",
           )}
         >
           <LogOut size={14} className="shrink-0" />
-          {!collapsed ? "Déconnexion" : null}
+          {!collapsed ? t("signOut") : null}
         </button>
       </div>
     </aside>
   );
 }
 
-export function SmqShell({ children }: { children: React.ReactNode }) {
+function SmqShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { t, nav } = useSmqLocale();
   const [navOpen, setNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const adminName =
@@ -185,18 +198,19 @@ export function SmqShell({ children }: { children: React.ReactNode }) {
   return (
     <SmqProvider>
       <SmqZoneProvider>
+        <SmqHtmlLang />
         <div className="flex min-h-[100dvh] flex-col lg:h-screen lg:overflow-hidden">
           <header className="flex shrink-0 items-center justify-between border-b border-line bg-ink px-4 py-3 text-paper lg:hidden">
             <button
               type="button"
               onClick={() => setNavOpen(true)}
               className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-white/10"
-              aria-label="Ouvrir le menu"
+              aria-label={t("openMenu")}
             >
               <Menu size={20} />
             </button>
-            <span className="font-display text-sm font-bold">SMQ C.IDES</span>
-            <div className="w-9" aria-hidden />
+            <span className="font-display text-sm font-bold">{t("nav_dashboard")}</span>
+            <SmqLocaleSwitch />
           </header>
 
           <div className="flex min-h-0 flex-1 lg:overflow-hidden">
@@ -204,7 +218,7 @@ export function SmqShell({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 className="fixed inset-0 z-40 bg-ink/50 lg:hidden"
-                aria-label="Fermer le menu"
+                aria-label={t("closeMenu")}
                 onClick={() => setNavOpen(false)}
               />
             ) : null}
@@ -215,6 +229,8 @@ export function SmqShell({ children }: { children: React.ReactNode }) {
               collapsed={sidebarCollapsed}
               onToggleCollapse={toggleSidebarCollapsed}
               onNavigate={() => setNavOpen(false)}
+              t={t}
+              nav={nav}
               className={cn(
                 "fixed inset-y-0 left-0 z-50 shrink-0 shadow-xl transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:shadow-none",
                 sidebarCollapsed ? "lg:w-[68px]" : "w-[min(280px,88vw)] lg:w-[220px]",
@@ -227,7 +243,7 @@ export function SmqShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={() => setNavOpen(false)}
                 className="fixed top-3 right-3 z-[60] flex h-9 w-9 items-center justify-center rounded-lg bg-ink/80 text-paper lg:hidden"
-                aria-label="Fermer le menu"
+                aria-label={t("closeMenu")}
               >
                 <X size={18} />
               </button>
@@ -240,5 +256,13 @@ export function SmqShell({ children }: { children: React.ReactNode }) {
         </div>
       </SmqZoneProvider>
     </SmqProvider>
+  );
+}
+
+export function SmqShell({ children }: { children: React.ReactNode }) {
+  return (
+    <SmqLocaleProvider>
+      <SmqShellInner>{children}</SmqShellInner>
+    </SmqLocaleProvider>
   );
 }

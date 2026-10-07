@@ -2,11 +2,14 @@
 
 import type { LucideIcon } from "lucide-react";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 import { STATUT_COLOR } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function StatusStamp({ label, className }: { label: string; className?: string }) {
+  const { tr } = useSmqLocale();
   const color = STATUT_COLOR[label] ?? "#33566C";
+  const display = tr(label);
 
   return (
     <span
@@ -17,7 +20,7 @@ export function StatusStamp({ label, className }: { label: string; className?: s
       style={{ color, borderColor: color, backgroundColor: `${color}14` }}
     >
       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-      <span className="truncate">{label}</span>
+      <span className="truncate">{display}</span>
     </span>
   );
 }
@@ -64,6 +67,8 @@ export function SelectInput({
   options: readonly string[] | string[];
   className?: string;
 }) {
+  const { tr } = useSmqLocale();
+
   return (
     <select
       value={value}
@@ -72,7 +77,7 @@ export function SelectInput({
     >
       {options.map((option) => (
         <option key={option} value={option}>
-          {option}
+          {tr(option)}
         </option>
       ))}
     </select>
@@ -172,7 +177,7 @@ export function TextArea({
 }
 
 export function LoadingState({
-  text = "Chargement des données…",
+  text,
   error,
   onRetry,
 }: {
@@ -180,6 +185,9 @@ export function LoadingState({
   error?: string | null;
   onRetry?: () => void;
 }) {
+  const { t } = useSmqLocale();
+  const loadingText = text ?? t("loadingData");
+
   if (error) {
     return (
       <div className="rounded-[10px] border-[1.5px] border-rust/40 bg-surface p-5 text-sm text-rust">
@@ -190,7 +198,7 @@ export function LoadingState({
             onClick={onRetry}
             className="mt-2 cursor-pointer font-semibold underline"
           >
-            Réessayer
+            {t("retry")}
           </button>
         )}
       </div>
@@ -200,7 +208,7 @@ export function LoadingState({
   return (
     <div className="flex items-center gap-2 text-muted-light">
       <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-line border-t-ink" />
-      {text}
+      {loadingText}
     </div>
   );
 }

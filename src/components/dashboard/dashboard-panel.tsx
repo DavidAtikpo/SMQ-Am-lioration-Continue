@@ -35,11 +35,13 @@ import { AiContent } from "@/components/ui/ai-content";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { COLORS } from "@/lib/constants";
 import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 import { daysUntil, fmtDate } from "@/lib/utils";
 import { useState } from "react";
 
 export function DashboardPanel() {
   const router = useRouter();
+  const { t, tr, locale, relativeDays } = useSmqLocale();
   const { data, loading, error, refresh } = useSmqFilteredData();
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText] = useState("");
@@ -76,17 +78,17 @@ export function DashboardPanel() {
 
   const kpiFormation = [
     {
-      label: "Examens réussis",
+      label: t("kpiExams"),
       value: pick(formation, "Examens réussis")?.value ?? "—",
       icon: GraduationCap,
     },
     {
-      label: "Recommandation (chaud)",
+      label: t("kpiRecommend"),
       value: pick(satisfaction, "Recommanderaient (chaud)")?.value ?? "—",
       icon: ThumbsUp,
     },
     {
-      label: "Demandes en retard",
+      label: t("kpiLateRequests"),
       value: pick(commercial, "sans traitement")?.value ?? "—",
       icon: TrendingUp,
     },
@@ -100,10 +102,10 @@ export function DashboardPanel() {
     .filter((d) => d.NC > 0);
 
   const stats = [
-    { label: "NC ouvertes", value: ncOuvertes.length, icon: AlertTriangle, color: COLORS.rust },
-    { label: "Actions en retard", value: actionsRetard.length, icon: Clock, color: COLORS.amber },
-    { label: "Taux de clôture NC", value: `${tauxCloture}%`, icon: ShieldCheck, color: COLORS.teal },
-    { label: "Échéances à venir", value: prochains.length, icon: CalendarClock, color: COLORS.steel },
+    { label: t("statOpenNc"), value: ncOuvertes.length, icon: AlertTriangle, color: COLORS.rust },
+    { label: t("statLateActions"), value: actionsRetard.length, icon: Clock, color: COLORS.amber },
+    { label: t("statNcClosure"), value: `${tauxCloture}%`, icon: ShieldCheck, color: COLORS.teal },
+    { label: t("statUpcoming"), value: prochains.length, icon: CalendarClock, color: COLORS.steel },
   ];
 
   async function runSync() {
@@ -132,7 +134,7 @@ export function DashboardPanel() {
         qhse?: { created: number; existing: number };
       };
       if (!res.ok && res.status !== 207) {
-        setSyncMessage(json.error ?? "Synchronisation échouée.");
+        setSyncMessage(json.error ?? t("syncFailed"));
         return;
       }
       const nc = json.cordiste?.nonConformites;
@@ -154,7 +156,7 @@ export function DashboardPanel() {
       );
       await refresh();
     } catch {
-      setSyncMessage("Impossible de synchroniser les sources externes.");
+      setSyncMessage(t("syncExternalFail"));
     } finally {
       setSyncLoading(false);
     }
@@ -162,7 +164,7 @@ export function DashboardPanel() {
 
   async function downloadPdf(path: string, fallbackName: string) {
     const response = await fetch(path);
-    if (!response.ok) throw new Error("PDF indisponible");
+    if (!response.ok) throw new Error(t("pdfUnavailable"));
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -180,7 +182,7 @@ export function DashboardPanel() {
         `gantt-agenda-${new Date().toISOString().slice(0, 10)}.pdf`,
       );
     } catch {
-      window.alert("Impossible de télécharger le PDF Gantt.");
+      window.alert(t("pdfGanttFail"));
     } finally {
       setDownloadingGanttPdf(false);
     }
@@ -194,7 +196,7 @@ export function DashboardPanel() {
         `audit-action-monitoring-${new Date().toISOString().slice(0, 10)}.pdf`,
       );
     } catch {
-      window.alert("Impossible de télécharger le PDF Actions.");
+      window.alert(t("pdfActionsFail"));
     } finally {
       setDownloadingActionsPdf(false);
     }
@@ -206,12 +208,12 @@ export function DashboardPanel() {
       const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "synthese" }),
+        body: JSON.stringify({ kind: "synthese", locale }),
       });
       const json = (await res.json()) as { text?: string };
-      setAiText(json.text ?? "Pas de réponse.");
+      setAiText(json.text ?? t("aiNoResponse"));
     } catch {
-      setAiText("Erreur lors de la génération. Réessayez.");
+      setAiText(t("aiError"));
     } finally {
       setAiLoading(false);
     }
@@ -220,8 +222,8 @@ export function DashboardPanel() {
   return (
     <div>
       <SmqPageHeader
-        title="SMQ C.IDES"
-        sub="Vue d'ensemble du SMQ"
+        title={t("dashboardTitle")}
+        sub={t("dashboardSub")}
         code="SMQ-DB"
         actions={
           <>
@@ -230,14 +232,14 @@ export function DashboardPanel() {
               className="px-2.5 py-1.5 text-xs"
               onClick={() => router.push("/planification?view=gantt")}
             >
-              <GanttChart size={14} /> Gantt Agenda
+              <GanttChart size={14} /> {t("ganttAgenda")}
             </Btn>
             <Btn
               kind="ghost"
               className="px-2.5 py-1.5 text-xs"
               onClick={() => router.push("/planification?view=tasks")}
             >
-              <ClipboardList size={14} /> Tâches Agenda
+              <ClipboardList size={14} /> {t("tasksAgenda")}
             </Btn>
             <Btn
               kind="ghost"
@@ -246,7 +248,7 @@ export function DashboardPanel() {
               onClick={() => void downloadGanttPdf()}
             >
               <Download size={14} />
-              {downloadingGanttPdf ? "PDF Gantt…" : "PDF Gantt"}
+              {downloadingGanttPdf ? t("pdfLoading") : t("pdfGantt")}
             </Btn>
             <Btn
               kind="ghost"
@@ -255,7 +257,7 @@ export function DashboardPanel() {
               onClick={() => void downloadActionsPdf()}
             >
               <Download size={14} />
-              {downloadingActionsPdf ? "PDF Actions…" : "PDF Actions"}
+              {downloadingActionsPdf ? t("pdfLoading") : t("pdfActions")}
             </Btn>
           </>
         }
@@ -263,10 +265,8 @@ export function DashboardPanel() {
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-sm font-bold">Sources externes</h2>
-          <p className="text-xs text-muted">
-            Cordiste · Agenda · Stagiaires · Satisfaction · Délais devis/inscription · Calendrier QHSE
-          </p>
+          <h2 className="font-display text-sm font-bold">{t("externalSources")}</h2>
+          <p className="text-xs text-muted">{t("externalSourcesSub")}</p>
         </div>
         <Btn onClick={() => void runSync()} disabled={syncLoading}>
           {syncLoading ? (
@@ -274,7 +274,7 @@ export function DashboardPanel() {
           ) : (
             <RefreshCw size={14} />
           )}
-          Synchroniser
+          {t("sync")}
         </Btn>
       </div>
       {syncMessage && (
@@ -305,9 +305,9 @@ export function DashboardPanel() {
 
       <div className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.3fr_1fr]">
         <div className="card">
-          <h2 className="mb-3 font-display text-sm font-bold">Non-conformités par service</h2>
+          <h2 className="mb-3 font-display text-sm font-bold">{t("chartNcByService")}</h2>
           {parService.length === 0 ? (
-            <EmptyState icon={AlertTriangle} text="Aucune non-conformité enregistrée pour l'instant." />
+            <EmptyState icon={AlertTriangle} text={t("noNcRecorded")} />
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={parService}>
@@ -326,9 +326,9 @@ export function DashboardPanel() {
         </div>
 
         <div className="card">
-          <h2 className="mb-3 font-display text-sm font-bold">Prochaines échéances</h2>
+          <h2 className="mb-3 font-display text-sm font-bold">{t("upcomingDeadlines")}</h2>
           {prochains.length === 0 ? (
-            <EmptyState icon={CalendarClock} text="Aucune réunion, audit ou revue planifiée." />
+            <EmptyState icon={CalendarClock} text={t("noUpcomingEvents")} />
           ) : (
             <div className="flex flex-col gap-2.5">
               {prochains.map((e) => {
@@ -339,7 +339,7 @@ export function DashboardPanel() {
                     className="flex flex-col gap-1 border-b border-line pb-2 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
-                      <div className="text-[13px] font-semibold">{e.type}</div>
+                      <div className="text-[13px] font-semibold">{tr(e.type)}</div>
                       <div className="font-mono text-[11.5px] text-muted-light">
                         {fmtDate(e.date)}
                       </div>
@@ -348,11 +348,7 @@ export function DashboardPanel() {
                       className="text-[11.5px] font-semibold"
                       style={{ color: (d ?? 0) < 0 ? COLORS.rust : COLORS.steel }}
                     >
-                      {(d ?? 0) < 0
-                        ? `${-(d ?? 0)} j de retard`
-                        : d === 0
-                          ? "aujourd'hui"
-                          : `dans ${d} j`}
+                      {relativeDays(d)}
                     </span>
                   </div>
                 );
@@ -365,7 +361,7 @@ export function DashboardPanel() {
       <div className="rounded-[10px] bg-ink p-4.5 text-paper">
         <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 font-display text-sm font-bold">
-            <Sparkles size={16} /> Synthèse IA du jour
+            <Sparkles size={16} /> {t("aiSummaryTitle")}
           </div>
           <Btn
             kind="ghost"
@@ -374,15 +370,13 @@ export function DashboardPanel() {
             disabled={aiLoading}
           >
             {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Générer
+            {t("generate")}
           </Btn>
         </div>
         {aiText ? (
           <AiContent content={aiText} variant="dark" />
         ) : (
-          <p className="text-[13.5px] leading-relaxed text-[#E7E2D2]">
-            Cliquez sur « Générer » pour obtenir une lecture par l&apos;IA de l&apos;état actuel du SMQ : priorités, risques et actions à planifier.
-          </p>
+          <p className="text-[13.5px] leading-relaxed text-[#E7E2D2]">{t("aiSummaryHint")}</p>
         )}
       </div>
     </div>

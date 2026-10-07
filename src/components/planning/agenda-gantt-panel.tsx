@@ -6,14 +6,16 @@ import { Btn, EmptyState, LoadingState, StatusStamp } from "@/components/ui";
 import { barGeometry, ganttRangeMs } from "@/lib/agenda/gantt-rows";
 import type { AgendaGanttPayload, GanttRow } from "@/lib/agenda/types";
 import { COLORS } from "@/lib/constants";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
+import type { SmqUiKey } from "@/lib/smq-i18n-ui";
 import { fmtDate } from "@/lib/utils";
 
 type GanttFilter = "all" | "tasks" | "sessions";
 
-const FILTER_LABELS: Record<GanttFilter, string> = {
-  all: "Tout afficher",
-  tasks: "Tâches uniquement",
-  sessions: "Sessions uniquement",
+const FILTER_LABEL_KEYS: Record<GanttFilter, SmqUiKey> = {
+  all: "ganttFilterAll",
+  tasks: "ganttFilterTasks",
+  sessions: "ganttFilterSessions",
 };
 
 function durationDays(startDate: string, endDate: string): number {
@@ -23,7 +25,11 @@ function durationDays(startDate: string, endDate: string): number {
   return Math.max(1, Math.round((end - start) / 86400000) + 1);
 }
 
-function monthLabels(min: number, max: number): { label: string; leftPct: number; widthPct: number }[] {
+function monthLabels(
+  min: number,
+  max: number,
+  locale: "fr" | "en",
+): { label: string; leftPct: number; widthPct: number }[] {
   const DAY_MS = 86400000;
   const span = Math.max(DAY_MS, max - min);
   const segments: { label: string; leftPct: number; widthPct: number }[] = [];
@@ -36,7 +42,10 @@ function monthLabels(min: number, max: number): { label: string; leftPct: number
     const next = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     const endMs = Math.min(next.getTime(), max);
     segments.push({
-      label: cursor.toLocaleDateString("fr-FR", { month: "short", year: "numeric" }),
+      label: cursor.toLocaleDateString(locale === "en" ? "en-GB" : "fr-FR", {
+        month: "short",
+        year: "numeric",
+      }),
       leftPct: ((startMs - min) / span) * 100,
       widthPct: ((endMs - startMs) / span) * 100,
     });
@@ -70,6 +79,7 @@ async function fetchAgendaGantt(): Promise<{
 }
 
 export function AgendaGanttPanel({ initialFilter = "all" }: { initialFilter?: GanttFilter }) {
+  const { t, locale } = useSmqLocale();
   const [data, setData] = useState<AgendaGanttPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,13 +119,13 @@ export function AgendaGanttPanel({ initialFilter = "all" }: { initialFilter?: Ga
   }, [data, filter]);
 
   const range = useMemo(() => ganttRangeMs(rows), [rows]);
-  const months = useMemo(() => monthLabels(range.min, range.max), [range]);
+  const months = useMemo(() => monthLabels(range.min, range.max, locale), [range, locale]);
 
   async function downloadPdf() {
     setDownloadingPdf(true);
     try {
       const response = await fetch("/api/agenda/gantt/pdf");
-      if (!response.ok) throw new Error("PDF indisponible");
+      if (!response.ok) throw new Error(t("pdfUnavailable"));
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -124,7 +134,7 @@ export function AgendaGanttPanel({ initialFilter = "all" }: { initialFilter?: Ga
       anchor.click();
       URL.revokeObjectURL(url);
     } catch {
-      window.alert("Impossible de télécharger le PDF Gantt.");
+      window.alert(t("pdfGanttFail"));
     } finally {
       setDownloadingPdf(false);
     }
@@ -142,20 +152,20 @@ export function AgendaGanttPanel({ initialFilter = "all" }: { initialFilter?: Ga
           onChange={(e) => setFilter(e.target.value as GanttFilter)}
           className="input-base w-full sm:w-auto sm:min-w-[180px]"
         >
-          {(Object.keys(FILTER_LABELS) as GanttFilter[]).map((key) => (
+          {(Object.keys(FILTER_LABEL_KEYS) as GanttFilter[]).map((key) => (
             <option key={key} value={key}>
-              {FILTER_LABELS[key]}
+              {t(FILTER_LABEL_KEYS[key])}
             </option>
           ))}
         </select>
         <div className="flex-1" />
         <Btn kind="ghost" disabled={loading} onClick={() => void load()}>
           {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          Actualiser
+          {t("refresh")}
         </Btn>
         <Btn kind="ghost" disabled={downloadingPdf || rows.length === 0} onClick={() => void downloadPdf()}>
           <Download size={14} />
-          {downloadingPdf ? "PDF…" : "Exporter PDF"}
+          {downloadingPdf ? t("pdfLoading") : t("exportPdf")}
         </Btn>
       </div>
 
@@ -168,17 +178,17 @@ export function AgendaGanttPanel({ initialFilter = "all" }: { initialFilter?: Ga
       {data && (
         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="card">
-            <div className="text-[12.5px] font-semibold text-muted">Tâches Agenda</div>
+            <div className="text-[12.5px] font-semibold text-muted">{t("tasksAgenda")}</div>
             <div className="mt-1 font-display text-2xl font-bold">{data.tasks.length}</div>
           </div>
           <div className="card">
-            <div className="text-[12.5px] font-semibold text-muted">Sessions formation</div>
+            <div className="text-[12.5px] font-semibold text-muted">{t("ganttSessions")}</div>
             <div className="mt-1 font-display text-2xl font-bold">{data.sessions.length}</div>
           </div>
           <div className="card">
-            <div className="text-[12.5px] font-semibold text-muted">Dernière lecture</div>
+            <div className="text-[12.5px] font-semibold text-muted">{t("ganttLastRead")}</div>
             <div className="mt-1 text-sm font-semibold">
-              {new Date(data.syncedAt).toLocaleString("fr-FR")}
+              {new Date(data.syncedAt).toLocaleString(locale === "en" ? "en-GB" : "fr-FR")}
             </div>
           </div>
         </div>
@@ -187,7 +197,7 @@ export function AgendaGanttPanel({ initialFilter = "all" }: { initialFilter?: Ga
       {rows.length === 0 ? (
         <EmptyState
           icon={GanttChart}
-          text="Aucune tâche ou session Agenda dans le périmètre SMQ (Laurent ↔ David). Vérifiez AGENDA_DATABASE_URL."
+          text={t("ganttEmpty")}
         />
       ) : (
         <div className="card overflow-hidden p-0">

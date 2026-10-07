@@ -2,15 +2,13 @@
 
 import { useState } from "react";
 import { Building2, Plus, X } from "lucide-react";
-import {
-  Btn,
-  LoadingState,
-  TextInput,
-} from "@/components/ui";
+import { Btn, LoadingState, TextInput } from "@/components/ui";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { useSmqData } from "@/hooks/use-smq-data";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 
 export function ServicesPanel() {
+  const { t, tr } = useSmqLocale();
   const { data, loading, error, refresh } = useSmqData();
   const [newService, setNewService] = useState("");
 
@@ -37,21 +35,17 @@ export function ServicesPanel() {
 
   return (
     <div>
-      <SmqPageHeader
-        title="Services"
-        sub="Périmètre de l'amélioration continue — toutes les fonctions"
-        code="SMQ-SVC"
-      />
+      <SmqPageHeader title={t("servicesTitle")} sub={t("servicesSub")} code="SMQ-SVC" />
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <TextInput
           value={newService}
           onChange={setNewService}
-          placeholder="Ajouter un service (ex : Achats, SAV...)"
+          placeholder={t("phNewService")}
           className="flex-1"
         />
         <Btn onClick={() => void add()} className="w-full sm:w-auto">
-          <Plus size={14} /> Ajouter
+          <Plus size={14} /> {t("add")}
         </Btn>
       </div>
 
@@ -68,7 +62,7 @@ export function ServicesPanel() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2 font-display text-sm font-bold">
                   <Building2 size={16} className="text-muted" />
-                  {s.name}
+                  {tr(s.name)}
                 </div>
                 <button
                   type="button"
@@ -79,9 +73,10 @@ export function ServicesPanel() {
                 </button>
               </div>
               <div className="mt-2 text-xs leading-relaxed text-muted">
-                NC totales : <strong>{ncCount}</strong> ({ncOuvertes} ouvertes)
+                {t("servicesNcTotal")} : <strong>{ncCount}</strong> ({ncOuvertes}{" "}
+                {t("servicesNcOpen")})
                 <br />
-                Actions : <strong>{actCount}</strong>
+                {t("servicesActions")} : <strong>{actCount}</strong>
               </div>
             </div>
           );

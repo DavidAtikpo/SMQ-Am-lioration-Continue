@@ -1,3 +1,5 @@
+import type { SmqLocale } from "@/lib/smq-i18n";
+
 export type Service = {
   id: string;
   name: string;
@@ -68,14 +70,20 @@ export type AiKind =
   | "synthese"
   | "nc-suggest"
   | "agenda"
+  | "compte-rendu-improve"
   | "audit-prep"
   | "revue-prep"
   | "chat";
 
 export type AiRequest =
-  | { kind: "synthese" }
-  | { kind: "nc-suggest"; payload: Record<string, unknown> }
-  | { kind: "agenda"; payload: Record<string, unknown> }
-  | { kind: "audit-prep"; payload?: Record<string, unknown> }
-  | { kind: "revue-prep"; payload?: Record<string, unknown> }
-  | { kind: "chat"; messages: Array<{ role: "user" | "assistant"; text: string }> };
+  | { kind: "synthese"; locale?: SmqLocale }
+  | { kind: "nc-suggest"; payload: Record<string, unknown>; locale?: SmqLocale }
+  | { kind: "agenda"; payload: Record<string, unknown>; locale?: SmqLocale }
+  | { kind: "compte-rendu-improve"; payload: Record<string, unknown>; locale?: SmqLocale }
+  | { kind: "audit-prep"; payload?: Record<string, unknown>; locale?: SmqLocale }
+  | { kind: "revue-prep"; payload?: Record<string, unknown>; locale?: SmqLocale }
+  | {
+      kind: "chat";
+      messages: Array<{ role: "user" | "assistant"; text: string }>;
+      locale?: SmqLocale;
+    };

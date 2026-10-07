@@ -18,6 +18,7 @@ import { AiContent } from "@/components/ui/ai-content";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { NC_GRAVITES, NC_SOURCES, NC_STATUTS } from "@/lib/constants";
 import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 import type { NonConformite } from "@/lib/types";
 import { fmtDate, todayISO } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ function emptyNC(serviceId: string): NcForm {
 
 export function NcPanel() {
   const router = useRouter();
+  const { t, tr, locale } = useSmqLocale();
   const { data, loading, error, refresh } = useSmqFilteredData();
   const [form, setForm] = useState<NcForm | null>(null);
   const [filterStatut, setFilterStatut] = useState("Toutes");
@@ -89,6 +91,7 @@ export function NcPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "nc-suggest",
+          locale,
           payload: {
             id: payload.id,
             service: payload.service.name,
@@ -100,9 +103,9 @@ export function NcPanel() {
         }),
       });
       const json = (await res.json()) as { text?: string };
-      setAiText(json.text ?? "Pas de réponse.");
+      setAiText(json.text ?? t("aiNoResponse"));
     } catch {
-      setAiText("Erreur lors de la génération. Réessayez.");
+      setAiText(t("aiError"));
     } finally {
       setAiLoading(false);
     }
@@ -120,11 +123,7 @@ export function NcPanel() {
 
   return (
     <div>
-      <SmqPageHeader
-        title="Non-conformités"
-        sub="Recueil et suivi des NC"
-        code="SMQ-NC"
-      />
+      <SmqPageHeader title={t("ncTitle")} sub={t("ncSub")} code="SMQ-NC" />
 
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <SelectInput
@@ -141,7 +140,7 @@ export function NcPanel() {
         />
         <div className="flex-1" />
         <Btn onClick={() => setForm(emptyNC(services[0]?.id ?? ""))}>
-          <Plus size={14} /> Nouvelle non-conformité
+          <Plus size={14} /> {t("newNc")}
         </Btn>
       </div>
 
@@ -149,7 +148,7 @@ export function NcPanel() {
         <div className="mb-4 rounded-[10px] border-[1.5px] border-ink bg-surface p-4.5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display font-bold">
-              {form.id ? `Modifier ${form.id}` : "Nouvelle non-conformité"}
+              {form.id ? `${t("edit")} ${form.id}` : t("newNc")}
             </h2>
             <button type="button" onClick={() => setForm(null)} className="cursor-pointer">
               <X size={16} />
@@ -157,14 +156,14 @@ export function NcPanel() {
           </div>
 
           <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Field label="Date de constat">
+            <Field label={t("fieldNcDate")}>
               <TextInput
                 type="date"
                 value={form.date}
                 onChange={(date) => setForm({ ...form, date })}
               />
             </Field>
-            <Field label="Service concerné">
+            <Field label={t("fieldNcService")}>
               <select
                 value={form.serviceId}
                 onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
@@ -172,67 +171,67 @@ export function NcPanel() {
               >
                 {services.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {tr(s.name)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Source">
+            <Field label={t("fieldSource")}>
               <SelectInput
                 value={form.source}
                 onChange={(source) => setForm({ ...form, source })}
                 options={NC_SOURCES}
               />
             </Field>
-            <Field label="Gravité">
+            <Field label={t("fieldSeverity")}>
               <SelectInput
                 value={form.gravite}
                 onChange={(gravite) => setForm({ ...form, gravite })}
                 options={NC_GRAVITES}
               />
             </Field>
-            <Field label="Statut">
+            <Field label={t("fieldStatus")}>
               <SelectInput
                 value={form.statut}
                 onChange={(statut) => setForm({ ...form, statut })}
                 options={NC_STATUTS}
               />
             </Field>
-            <Field label="Responsable du traitement">
+            <Field label={t("fieldNcResponsible")}>
               <TextInput
                 value={form.responsable}
                 onChange={(responsable) => setForm({ ...form, responsable })}
-                placeholder="Nom / fonction"
+                placeholder={t("phResponsible")}
               />
             </Field>
           </div>
 
-          <Field label="Description de la non-conformité">
+          <Field label={t("fieldNcDescription")}>
             <TextArea
               value={form.description}
               onChange={(description) => setForm({ ...form, description })}
-              placeholder="Que s'est-il passé, où, comment détecté ?"
+              placeholder={t("phNcDescription")}
             />
           </Field>
 
           <div className="h-2.5" />
 
-          <Field label="Analyse de la cause racine">
+          <Field label={t("fieldNcRootCause")}>
             <TextArea
               value={form.causeRacine}
               onChange={(causeRacine) => setForm({ ...form, causeRacine })}
-              placeholder="Pourquoi cela s'est produit (5 pourquoi, Ishikawa...)"
+              placeholder={t("phNcRootCause")}
             />
           </Field>
 
           <div className="mt-3.5 flex flex-wrap gap-2">
             <Btn onClick={() => void save()}>
-              <Check size={14} /> Enregistrer
+              <Check size={14} /> {t("save")}
             </Btn>
             {form.description && (
               <Btn kind="ghost" onClick={() => void askAI(form as NonConformite)} disabled={aiLoading}>
                 {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Suggestion IA d&apos;action corrective
+                {t("ncAiSuggest")}
               </Btn>
             )}
           </div>
@@ -246,7 +245,7 @@ export function NcPanel() {
       )}
 
       {filtered.length === 0 ? (
-        <EmptyState icon={AlertTriangle} text="Aucune non-conformité ne correspond aux filtres." />
+        <EmptyState icon={AlertTriangle} text={t("ncNoMatch")} />
       ) : (
         <div className="flex flex-col gap-2.5">
           {filtered.map((n) => {
@@ -256,11 +255,11 @@ export function NcPanel() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
-                      {n.id} · {fmtDate(n.date)} · {n.service.name}
+                      {n.id} · {fmtDate(n.date)} · {tr(n.service.name)}
                     </div>
                     <CordisteRichText id={n.id} text={n.description} className="my-1" />
                     <div className="text-xs text-muted">
-                      Source : {n.source} · Gravité : {n.gravite}
+                      {t("ncSourceLabel")} : {tr(n.source)} · {t("ncSeverityLabel")} : {tr(n.gravite)}
                       {n.responsable && ` · Resp. ${n.responsable}`}
                     </div>
                   </div>
@@ -284,14 +283,14 @@ export function NcPanel() {
                       })
                     }
                   >
-                    Modifier
+                    {t("edit")}
                   </Btn>
                   <Btn
                     kind="danger"
                     className="px-2.5 py-1.5 text-xs"
                     onClick={() => void remove(n.id)}
                   >
-                    Supprimer
+                    {t("delete")}
                   </Btn>
                   {linked.length === 0 && n.statut !== "Clôturée" && (
                     <Btn
@@ -299,11 +298,13 @@ export function NcPanel() {
                       className="px-2.5 py-1.5 text-xs"
                       onClick={() => onCreateAction(n)}
                     >
-                      <Plus size={12} /> Créer l&apos;action corrective
+                      <Plus size={12} /> {t("ncCreateAction")}
                     </Btn>
                   )}
                   {linked.length > 0 && (
-                    <span className="text-xs text-steel">{linked.length} action(s) liée(s)</span>
+                    <span className="text-xs text-steel">
+                      {linked.length} {t("ncLinkedActions")}
+                    </span>
                   )}
                 </div>
               </div>

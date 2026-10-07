@@ -142,6 +142,9 @@ export function buildSmqContext(data: SmqData): string {
       date: e.date,
       statut: e.statut,
       services: e.servicesConcernes,
+      participants: e.participants,
+      ordre_du_jour: e.ordreDuJour.slice(0, 4000),
+      compte_rendu: e.compteRendu.slice(0, 4000),
     })),
     indicateurs: data.indicators.map((i) => ({
       id: i.id,

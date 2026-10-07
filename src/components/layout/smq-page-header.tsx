@@ -1,6 +1,7 @@
 "use client";
 
 import { SmqZoneFilter } from "@/components/layout/smq-zone-filter";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 import { cn } from "@/lib/utils";
 
 function HeaderDivider({ className }: { className?: string }) {
@@ -26,6 +27,8 @@ export function SmqPageHeader({
   /** Onglets ou contrôles supplémentaires (ex. planification). */
   extra?: React.ReactNode;
 }) {
+  const { t } = useSmqLocale();
+
   return (
     <div className="mb-2 border-b border-line pb-2">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -64,7 +67,7 @@ export function SmqPageHeader({
               !actions && "ml-auto",
             )}
           >
-            DOC N° {code}
+            {t("docNo")} {code}
           </span>
         ) : null}
       </div>

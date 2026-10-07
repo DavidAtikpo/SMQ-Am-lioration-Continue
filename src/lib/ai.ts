@@ -1,4 +1,5 @@
 import { SYSTEM_PROMPT } from "@/lib/constants";
+import { aiLocaleInstruction, parseSmqLocale, type SmqLocale } from "@/lib/smq-i18n";
 import type { AiRequest } from "@/lib/types";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
@@ -12,10 +13,71 @@ function buildPrompt(kind: AiRequest["kind"], payload?: Record<string, unknown>)
     return `Propose une action corrective concrète et réaliste pour cette non-conformité : ${JSON.stringify(payload)}. Réponds en 5 lignes maximum : cause probable, action proposée, service pilote, délai suggéré.`;
   }
   if (kind === "agenda") {
-    return `Génère un ordre du jour structuré pour cet événement à venir : ${JSON.stringify(payload)}. Adapte le contenu au type d'événement (réunion interne trimestrielle, audit interne, ou revue de direction) en t'appuyant sur les données du SMQ.`;
+    const draft =
+      typeof payload?.ordreDuJour === "string" ? payload.ordreDuJour.trim() : "";
+    const mode =
+      payload?.mode === "improve" || (draft.length > 0 && payload?.mode !== "create")
+        ? "improve"
+        : "create";
+
+    if (mode === "improve") {
+      return `L'utilisateur a rédigé un BROUILLON d'ordre du jour. Tu dois le REFORMULER en style professionnel SMQ (audit interne / préparation IRATA) SANS supprimer aucun axe, partie ou point qu'il a mentionnés.
+
+RÈGLES STRICTES :
+- Conserve EXACTEMENT le même nombre de parties/axes (ex. Axe 1, Axe 2, Axe 3).
+- Ne fusionne pas deux axes en un seul.
+- N'invente pas de nouveaux sujets majeurs non présents dans le brouillon.
+- Retourne UNIQUEMENT le texte final de l'ordre du jour (pas de commentaire).
+
+Événement : ${JSON.stringify({
+        type: payload?.type,
+        date: payload?.date,
+        statut: payload?.statut,
+        services: payload?.servicesConcernes,
+      })}
+
+Brouillon ordre du jour :
+${draft}`;
+    }
+
+    return `Génère un ordre du jour structuré pour cet événement : ${JSON.stringify(payload)}. Adapte au type (réunion interne, audit interne, revue de direction) en t'appuyant sur les données SMQ. Numérote clairement chaque axe.`;
+  }
+  if (kind === "compte-rendu-improve") {
+    const draft =
+      typeof payload?.compteRendu === "string" ? payload.compteRendu.trim() : "";
+    return `L'utilisateur a rédigé un BROUILLON de compte-rendu / constats d'audit ou de réunion. REFORMULE en style professionnel SMQ en conservant TOUS les faits, constats et décisions mentionnés. Structure par axes si l'ordre du jour en contient. Retourne UNIQUEMENT le texte final du compte-rendu.
+
+Événement : ${JSON.stringify({
+      id: payload?.id,
+      type: payload?.type,
+      date: payload?.date,
+      ordre_du_jour: payload?.ordreDuJour,
+    })}
+
+Brouillon compte-rendu :
+${draft}`;
   }
   if (kind === "audit-prep") {
-    return `Prépare le contenu d'un audit interne SMQ. Identifie le ou les points les plus faibles à partir des NC, actions, indicateurs stagiaires, satisfaction et délais processus. Structure : constats, preuves, gravité, actions recommandées. Format prêt pour validation dirigeant.`;
+    const event = payload?.event as Record<string, unknown> | undefined;
+    if (event && typeof event === "object") {
+      return `Prépare une FICHE DE SYNTHÈSE d'audit interne SMQ prête à transmettre à un auditeur (contexte confirmation / audit IRATA).
+
+PRIORITÉ ABSOLUE : partir des notes DÉJÀ SAISIES par l'équipe (ordre du jour + compte-rendu). Ne les remplace pas par un audit générique sur d'autres dates.
+
+Complète avec les NC, actions et indicateurs du JSON SMQ uniquement si cela étaye les constats déjà notés.
+
+Structure :
+1. Contexte et périmètre (services audités, date, statut)
+2. Déroulé — reprendre CHAQUE axe de l'ordre du jour
+3. Constats et preuves
+4. Points forts / points d'amélioration
+5. Actions recommandées
+6. Conclusion
+
+Audit enregistré :
+${JSON.stringify(event)}`;
+    }
+    return `Prépare le contenu d'un audit interne SMQ. Identifie les points faibles à partir des NC, actions, indicateurs. Si un audit interne récent existe dans evenements avec ordre_du_jour/compte_rendu, PARTIR de ces notes. Structure : constats, preuves, gravité, actions recommandées.`;
   }
   if (kind === "revue-prep") {
     return `Prépare le dossier de revue de direction : synthèse des 2 audits internes, état NC/actions, KPI formation et satisfaction, décisions proposées et plan d'actions. Le dirigeant ne doit que valider et ajouter une note si besoin.`;
@@ -89,7 +151,13 @@ function normalizeChatMessages(messages: Array<{ role: "user" | "assistant"; tex
     .map((m) => ({ role: m.role, content: m.text }));
 }
 
+function resolveLocale(request: AiRequest): SmqLocale {
+  return parseSmqLocale("locale" in request ? request.locale : undefined);
+}
+
 export async function callSmqAi(request: AiRequest, context: string): Promise<string> {
+  const locale = resolveLocale(request);
+  const localeLine = aiLocaleInstruction(locale);
   const apiKey = getApiKey();
   if (!apiKey) {
     return "Configurez ANTHROPIC_API_KEY dans le fichier .env pour activer l'assistant IA.";
@@ -99,7 +167,7 @@ export async function callSmqAi(request: AiRequest, context: string): Promise<st
     request.kind === "chat"
       ? {
           max_tokens: 1200,
-          system: `${SYSTEM_PROMPT}\n\nDonnées actuelles du SMQ (JSON) :\n${context}`,
+          system: `${SYSTEM_PROMPT}\n\n${localeLine}\n\nDonnées actuelles du SMQ (JSON) :\n${context}`,
           messages: normalizeChatMessages(request.messages),
         }
       : {
@@ -107,7 +175,7 @@ export async function callSmqAi(request: AiRequest, context: string): Promise<st
           messages: [
             {
               role: "user" as const,
-              content: `${SYSTEM_PROMPT}\n\nDonnées SMQ (JSON) :\n${context}\n\n${buildPrompt(
+              content: `${SYSTEM_PROMPT}\n\n${localeLine}\n\nDonnées SMQ (JSON) :\n${context}\n\n${buildPrompt(
                 request.kind,
                 "payload" in request ? request.payload : undefined,
               )}`,

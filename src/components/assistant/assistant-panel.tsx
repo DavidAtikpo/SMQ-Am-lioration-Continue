@@ -5,26 +5,23 @@ import { Loader2, Send } from "lucide-react";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { Btn, TextInput } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
+import type { SmqUiKey } from "@/lib/smq-i18n-ui";
 
 type Message = { role: "user" | "assistant"; text: string };
 
-const INITIAL_MESSAGE: Message = {
-  role: "assistant",
-  text: "Bonjour, je suis le copilote du système d'amélioration continue. Je peux analyser vos non-conformités, préparer vos réunions, audits internes et revue de direction, et proposer un plan d'actions priorisé, tous services confondus. Que puis-je faire pour vous ?",
-};
-
-const QUICK = [
-  "Analyse les tendances des non-conformités des 3 derniers mois",
-  "Prépare l'ordre du jour de la prochaine revue de direction",
-  "Propose une checklist pour le prochain audit interne",
-  "Quelles actions sont prioritaires cette semaine, tous services ?",
-];
+const QUICK_KEYS: SmqUiKey[] = ["quick1", "quick2", "quick3", "quick4"];
 
 export function AssistantPanel() {
-  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
+  const { t, locale } = useSmqLocale();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMessages([{ role: "assistant", text: t("assistantInitial") }]);
+  }, [locale, t]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -45,18 +42,19 @@ export function AssistantPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: "chat",
+          locale,
           messages: newMessages,
         }),
       });
       const json = (await res.json()) as { text?: string };
       setMessages((cur) => [
         ...cur,
-        { role: "assistant", text: json.text ?? "Désolé, je n'ai pas pu générer de réponse." },
+        { role: "assistant", text: json.text ?? t("assistantSorry") },
       ]);
     } catch {
       setMessages((cur) => [
         ...cur,
-        { role: "assistant", text: "Une erreur est survenue lors de l'appel à l'assistant. Réessayez." },
+        { role: "assistant", text: t("assistantCallError") },
       ]);
     } finally {
       setLoading(false);
@@ -65,21 +63,17 @@ export function AssistantPanel() {
 
   return (
     <div className="flex min-h-[calc(100dvh-10rem)] flex-col lg:min-h-0">
-      <SmqPageHeader
-        title="Assistant IA"
-        sub="Copilote du pilotage, du suivi et de la planification du SMQ"
-        code="SMQ-IA"
-      />
+      <SmqPageHeader title={t("assistantTitle")} sub={t("assistantSub")} code="SMQ-IA" />
 
       <div className="mb-3.5 flex flex-wrap gap-2">
-        {QUICK.map((q) => (
+        {QUICK_KEYS.map((key) => (
           <button
-            key={q}
+            key={key}
             type="button"
-            onClick={() => void send(q)}
+            onClick={() => void send(t(key))}
             className="cursor-pointer rounded-full border-[1.5px] border-line bg-surface px-3 py-1.5 text-xs text-muted"
           >
-            {q}
+            {t(key)}
           </button>
         ))}
       </div>
@@ -107,7 +101,7 @@ export function AssistantPanel() {
         ))}
         {loading && (
           <div className="flex items-center gap-1.5 text-[12.5px] text-muted-light">
-            <Loader2 size={13} className="animate-spin" /> L&apos;assistant réfléchit…
+            <Loader2 size={13} className="animate-spin" /> {t("assistantThinking")}
           </div>
         )}
         <div ref={endRef} />
@@ -117,11 +111,11 @@ export function AssistantPanel() {
         <TextInput
           value={input}
           onChange={setInput}
-          placeholder="Posez une question ou demandez une analyse…"
+          placeholder={t("phAssistant")}
           className="flex-1"
         />
-        <Btn onClick={() => void send()} disabled={loading} className="w-full sm:w-auto">
-          <Send size={14} /> Envoyer
+        <Btn onClick={() => void send()} disabled={loading || !input.trim()}>
+          <Send size={14} /> {t("assistantSend")}
         </Btn>
       </div>
     </div>

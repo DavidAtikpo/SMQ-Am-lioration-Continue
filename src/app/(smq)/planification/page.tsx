@@ -6,6 +6,8 @@ import { AgendaKanbanPanel } from "@/components/planning/agenda-kanban-panel";
 import { PlanningPanel } from "@/components/planning/planning-panel";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { COLORS } from "@/lib/constants";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
+import type { SmqUiKey } from "@/lib/smq-i18n-ui";
 
 type PlanTab = "smq" | "gantt" | "tasks";
 type GanttFilter = "all" | "tasks" | "sessions";
@@ -24,14 +26,15 @@ function resolveTab(view: string | null, filter: string | null): PlanTab {
   return "smq";
 }
 
-const TAB_LABELS: Record<PlanTab, string> = {
-  smq: "Calendrier SMQ",
-  gantt: "Gantt Agenda",
-  tasks: "Tâches Agenda",
+const TAB_LABEL_KEYS: Record<PlanTab, SmqUiKey> = {
+  smq: "tabSmqCalendar",
+  gantt: "tabGantt",
+  tasks: "tabTasks",
 };
 
 export default function PlanificationPage() {
   const router = useRouter();
+  const { t } = useSmqLocale();
   const searchParams = useSearchParams();
   const filterParam = searchParams.get("filter");
   const ganttFilter: GanttFilter =
@@ -41,15 +44,15 @@ export default function PlanificationPage() {
 
   const tabMeta: Record<PlanTab, { sub: string; code: string }> = {
     smq: {
-      sub: `Réunions, audits et revue de direction — ${year}`,
+      sub: `${t("planSubSmq")} — ${year}`,
       code: "SMQ-PLAN",
     },
     gantt: {
-      sub: "Tâches et sessions Neurix — lecture seule",
+      sub: t("planSubGantt"),
       code: "SMQ-PLAN-GANTT",
     },
     tasks: {
-      sub: "Kanban Neurix (Laurent ↔ David) — lecture seule",
+      sub: t("planSubTasks"),
       code: "SMQ-PLAN-TASKS",
     },
   };
@@ -77,12 +80,12 @@ export default function PlanificationPage() {
       }
     >
       <SmqPageHeader
-        title="Planification"
+        title={t("planningTitle")}
         sub={meta.sub}
         code={meta.code}
         extra={
-          <nav className="flex flex-wrap items-center gap-1.5" aria-label="Vues planification">
-            {(Object.keys(TAB_LABELS) as PlanTab[]).map((key) => (
+          <nav className="flex flex-wrap items-center gap-1.5" aria-label={t("planNavLabel")}>
+            {(Object.keys(TAB_LABEL_KEYS) as PlanTab[]).map((key) => (
               <button
                 key={key}
                 type="button"
@@ -90,7 +93,7 @@ export default function PlanificationPage() {
                 className="cursor-pointer rounded-full border-[1.5px] px-2.5 py-1 text-[11px] font-semibold transition-colors sm:px-3 sm:text-[12px]"
                 style={tabStyle(tab === key)}
               >
-                {TAB_LABELS[key]}
+                {t(TAB_LABEL_KEYS[key])}
               </button>
             ))}
           </nav>

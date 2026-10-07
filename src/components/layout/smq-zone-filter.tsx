@@ -2,15 +2,17 @@
 
 import { SMQ_ZONE_LABELS, SMQ_ZONES } from "@/lib/smq-zone";
 import { COLORS } from "@/lib/constants";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 import { useSmqZone } from "@/hooks/use-smq-zone";
 import { cn } from "@/lib/utils";
 
 export function SmqZoneFilter({ inline }: { inline?: boolean }) {
   const { zone, setZone } = useSmqZone();
+  const { t, tr } = useSmqLocale();
 
   return (
     <div className={cn("flex shrink-0 flex-wrap items-center gap-1.5", !inline && "mb-2")}>
-      <span className="text-[11px] font-semibold text-muted">Périmètre :</span>
+      <span className="text-[11px] font-semibold text-muted">{t("scope")}</span>
       {SMQ_ZONES.map((key) => (
         <button
           key={key}
@@ -23,7 +25,7 @@ export function SmqZoneFilter({ inline }: { inline?: boolean }) {
             color: zone === key ? COLORS.paper : "#5B5648",
           }}
         >
-          {SMQ_ZONE_LABELS[key]}
+          {tr(SMQ_ZONE_LABELS[key])}
         </button>
       ))}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarClock, Check, Loader2, Plus, Sparkles, X } from "lucide-react";
+import { CalendarClock, Check, Download, Loader2, Plus, Sparkles, X } from "lucide-react";
 import {
   Btn,
   EmptyState,
@@ -15,6 +15,9 @@ import {
 import { AiContent } from "@/components/ui/ai-content";
 import { COLORS, EVENT_STATUTS, EVENT_TYPES } from "@/lib/constants";
 import { useSmqData } from "@/hooks/use-smq-data";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
+import { pickAuditEventForPrep } from "@/lib/smq-audit-helpers";
+import type { SmqEvent } from "@/lib/types";
 import { fmtDate } from "@/lib/utils";
 
 type EventForm = {
@@ -42,11 +45,13 @@ function emptyEvent(): EventForm {
 
 export function PlanningPanel() {
   const { data, loading, error, refresh } = useSmqData();
+  const { locale, t, tr } = useSmqLocale();
   const [form, setForm] = useState<EventForm | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [genMessage, setGenMessage] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   if (loading || !data) return <LoadingState error={error} onRetry={() => void refresh()} />;
 
@@ -58,9 +63,9 @@ export function PlanningPanel() {
   const revues = thisYear.filter((e) => e.type === "Revue de Direction").length;
 
   const rythme = [
-    { label: "Réunions internes", cible: 4, fait: reunions },
-    { label: "Audits internes", cible: 2, fait: audits },
-    { label: "Revue de Direction", cible: 1, fait: revues },
+    { label: t("rhythmMeetings"), cible: 4, fait: reunions },
+    { label: t("rhythmAudits"), cible: 2, fait: audits },
+    { label: t("rhythmReview"), cible: 1, fait: revues },
   ];
 
   async function save() {
@@ -90,21 +95,77 @@ export function PlanningPanel() {
     });
   }
 
-  async function askAI() {
+  async function improveOrdreDuJour() {
     if (!form) return;
     setAiLoading(true);
+    setAiText("");
+    try {
+      const mode = form.ordreDuJour.trim() ? "improve" : "create";
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "agenda", payload: { ...form, mode }, locale }),
+      });
+      const json = (await res.json()) as { text?: string; error?: string };
+      if (!res.ok) {
+        setAiText(json.error ?? t("aiErrorShort"));
+        return;
+      }
+      const text = (json.text ?? "").trim();
+      if (text) setForm({ ...form, ordreDuJour: text });
+      setAiText(text || t("aiNoResponse"));
+    } catch {
+      setAiText(t("aiError"));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function improveCompteRendu() {
+    if (!form) return;
+    if (!form.compteRendu.trim()) {
+      setAiText(t("draftMinutesFirst"));
+      return;
+    }
+    setAiLoading(true);
+    setAiText("");
     try {
       const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "agenda", payload: form }),
+        body: JSON.stringify({ kind: "compte-rendu-improve", payload: form, locale }),
       });
-      const json = (await res.json()) as { text?: string };
-      setAiText(json.text ?? "Pas de réponse.");
+      const json = (await res.json()) as { text?: string; error?: string };
+      if (!res.ok) {
+        setAiText(json.error ?? t("aiErrorShort"));
+        return;
+      }
+      const text = (json.text ?? "").trim();
+      if (text) setForm({ ...form, compteRendu: text });
+      setAiText(text || t("aiNoResponse"));
     } catch {
-      setAiText("Erreur lors de la génération. Réessayez.");
+      setAiText(t("aiError"));
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  async function downloadPlanningPdf() {
+    setDownloadingPdf(true);
+    try {
+      const response = await fetch(`/api/planning/pdf?year=${year}&lang=${locale}`);
+      if (!response.ok) throw new Error(t("pdfUnavailable"));
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `planification-smq-${year}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert(t("pdfPlanningFail"));
+    } finally {
+      setDownloadingPdf(false);
     }
   }
 
@@ -123,36 +184,82 @@ export function PlanningPanel() {
         existing?: number;
       };
       if (!res.ok) {
-        setGenMessage(json.error ?? "Génération échouée.");
+        setGenMessage(json.error ?? t("genFailed"));
         return;
       }
       setGenMessage(
-        `${json.created ?? 0} événement(s) QHSE créé(s) · ${json.existing ?? 0} déjà planifié(s).`,
+        `${json.created ?? 0} ${t("genCalendarOk")} ${json.existing ?? 0} ${t("genCalendarExisting")}`,
       );
       await refresh();
     } catch {
-      setGenMessage("Impossible de générer le calendrier QHSE.");
+      setGenMessage(t("genCalendarFail"));
     } finally {
       setGenLoading(false);
     }
   }
 
-  async function askPrep(kind: "audit-prep" | "revue-prep") {
+  function openEventForm(event: SmqEvent) {
+    setForm({ ...emptyEvent(), ...event });
+    setAiText("");
+  }
+
+  async function downloadEventPdf(eventId: string) {
+    try {
+      const response = await fetch(`/api/events/${eventId}/pdf?lang=${locale}`);
+      if (!response.ok) throw new Error(t("pdfUnavailable"));
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${eventId}-${locale}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert(t("pdfEventFail"));
+    }
+  }
+
+  async function askPrep(kind: "audit-prep" | "revue-prep", eventHint?: SmqEvent) {
     setAiLoading(true);
     setAiText("");
+
+    let payload: Record<string, unknown> | undefined;
+    if (kind === "audit-prep") {
+      const audit =
+        eventHint ??
+        (form?.type === "Audit interne" ? ({ ...form } as SmqEvent) : null) ??
+        pickAuditEventForPrep(events, form?.id);
+      if (!audit) {
+        setAiText(t("noAuditFound"));
+        setAiLoading(false);
+        return;
+      }
+      openEventForm(audit);
+      payload = { event: audit };
+    }
+
     try {
       const res = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind }),
+        body: JSON.stringify({ kind, payload, locale }),
       });
-      const json = (await res.json()) as { text?: string };
-      setAiText(json.text ?? "Pas de réponse.");
+      const json = (await res.json()) as { text?: string; error?: string };
+      if (!res.ok) {
+        setAiText(json.error ?? t("aiErrorShort"));
+        return;
+      }
+      setAiText(json.text ?? t("aiNoResponse"));
     } catch {
-      setAiText("Erreur lors de la génération. Réessayez.");
+      setAiText(t("aiError"));
     } finally {
       setAiLoading(false);
     }
+  }
+
+  function applyAiToCompteRendu() {
+    if (!form || !aiText.trim()) return;
+    setForm({ ...form, compteRendu: aiText.trim() });
   }
 
   return (
@@ -164,7 +271,7 @@ export function PlanningPanel() {
             <div className="mt-1 font-display text-2xl font-bold">
               {r.fait}{" "}
               <span className="text-sm font-medium text-muted-light">
-                / {r.cible} cible {year}
+                / {r.cible} {t("rhythmTarget")} {year}
               </span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded bg-paper-alt">
@@ -181,18 +288,26 @@ export function PlanningPanel() {
       </div>
 
       <div className="mb-3.5 flex flex-wrap justify-end gap-2">
+        <Btn
+          kind="ghost"
+          disabled={downloadingPdf}
+          onClick={() => void downloadPlanningPdf()}
+        >
+          {downloadingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {downloadingPdf ? t("pdfLoading") : t("exportPdf")}
+        </Btn>
         <Btn onClick={() => void generateQhseCalendar()} disabled={genLoading}>
           {genLoading ? <Loader2 size={14} className="animate-spin" /> : <CalendarClock size={14} />}
-          Générer calendrier QHSE {year}
+          {t("genQhseCalendar")} {year}
         </Btn>
         <Btn kind="ghost" onClick={() => void askPrep("audit-prep")} disabled={aiLoading}>
-          <Sparkles size={14} /> Préparer audit interne
+          <Sparkles size={14} /> {t("auditSynthNotes")}
         </Btn>
         <Btn kind="ghost" onClick={() => void askPrep("revue-prep")} disabled={aiLoading}>
-          <Sparkles size={14} /> Préparer revue de direction
+          <Sparkles size={14} /> {t("prepManagementReview")}
         </Btn>
         <Btn onClick={() => setForm(emptyEvent())}>
-          <Plus size={14} /> Planifier un événement
+          <Plus size={14} /> {t("scheduleEvent")}
         </Btn>
       </div>
       {genMessage && (
@@ -203,6 +318,9 @@ export function PlanningPanel() {
       {aiText && !form && (
         <div className="mb-4 rounded-[10px] border border-line bg-paper-alt p-4">
           <AiContent content={aiText} className="text-[13px]" />
+          <p className="mt-2 text-[11px] text-muted">
+            {t("aiSynthHint")}
+          </p>
         </div>
       )}
 
@@ -210,7 +328,7 @@ export function PlanningPanel() {
         <div className="mb-4 rounded-[10px] border-[1.5px] border-ink bg-surface p-4.5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display font-bold">
-              {form.id ? `Modifier ${form.id}` : "Nouvel événement"}
+              {form.id ? `${t("edit")} ${form.id}` : t("newEvent")}
             </h2>
             <button type="button" onClick={() => setForm(null)} className="cursor-pointer">
               <X size={16} />
@@ -218,21 +336,21 @@ export function PlanningPanel() {
           </div>
 
           <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Field label="Type">
+            <Field label={t("fieldType")}>
               <SelectInput
                 value={form.type}
                 onChange={(type) => setForm({ ...form, type })}
                 options={EVENT_TYPES}
               />
             </Field>
-            <Field label="Date">
+            <Field label={t("fieldDate")}>
               <TextInput
                 type="date"
                 value={form.date}
                 onChange={(date) => setForm({ ...form, date })}
               />
             </Field>
-            <Field label="Statut">
+            <Field label={t("fieldStatus")}>
               <SelectInput
                 value={form.statut}
                 onChange={(statut) => setForm({ ...form, statut })}
@@ -241,7 +359,7 @@ export function PlanningPanel() {
             </Field>
           </div>
 
-          <Field label="Services concernés">
+          <Field label={t("fieldServices")}>
             <div className="mt-0.5 flex flex-wrap gap-1.5">
               {services.map((s) => {
                 const selected = form.servicesConcernes.includes(s.name);
@@ -257,7 +375,7 @@ export function PlanningPanel() {
                       color: selected ? COLORS.paper : "#5B5648",
                     }}
                   >
-                    {s.name}
+                    {tr(s.name)}
                   </button>
                 );
               })}
@@ -266,17 +384,17 @@ export function PlanningPanel() {
 
           <div className="h-3" />
 
-          <Field label="Participants">
+          <Field label={t("fieldParticipants")}>
             <TextInput
               value={form.participants}
               onChange={(participants) => setForm({ ...form, participants })}
-              placeholder="Noms / fonctions"
+              placeholder={t("phParticipants")}
             />
           </Field>
 
           <div className="h-3" />
 
-          <Field label="Ordre du jour">
+          <Field label={t("fieldAgenda")}>
             <TextArea
               value={form.ordreDuJour}
               onChange={(ordreDuJour) => setForm({ ...form, ordreDuJour })}
@@ -285,27 +403,41 @@ export function PlanningPanel() {
 
           <div className="h-3" />
 
-          <Field label="Compte-rendu / constats">
+          <Field label={t("fieldMinutes")}>
             <TextArea
               value={form.compteRendu}
               onChange={(compteRendu) => setForm({ ...form, compteRendu })}
-              placeholder="À compléter après l'événement"
+              placeholder={t("phMinutes")}
             />
           </Field>
 
           <div className="mt-3.5 flex flex-wrap gap-2">
             <Btn onClick={() => void save()}>
-              <Check size={14} /> Enregistrer
+              <Check size={14} /> {t("save")}
             </Btn>
-            <Btn kind="ghost" onClick={() => void askAI()} disabled={aiLoading}>
+            <Btn kind="ghost" onClick={() => void improveOrdreDuJour()} disabled={aiLoading}>
               {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              Générer l&apos;ordre du jour avec l&apos;IA
+              {form.ordreDuJour.trim() ? t("improveAgenda") : t("generateAgenda")}
             </Btn>
+            <Btn kind="ghost" onClick={() => void improveCompteRendu()} disabled={aiLoading}>
+              {aiLoading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {t("improveMinutes")}
+            </Btn>
+            {form.type === "Audit interne" && (
+              <Btn kind="ghost" onClick={() => void askPrep("audit-prep")} disabled={aiLoading}>
+                <Sparkles size={14} /> {t("auditorSheetAi")}
+              </Btn>
+            )}
           </div>
 
           {aiText && (
             <div className="mt-3 rounded-lg bg-paper-alt p-3">
               <AiContent content={aiText} className="text-[13px]" />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Btn kind="ghost" className="px-2.5 py-1.5 text-xs" onClick={applyAiToCompteRendu}>
+                  {t("copyToMinutes")}
+                </Btn>
+              </div>
             </div>
           )}
         </div>
@@ -314,7 +446,7 @@ export function PlanningPanel() {
       {events.length === 0 ? (
         <EmptyState
           icon={CalendarClock}
-          text="Aucun événement planifié. La règle QHSE : 4 réunions internes, 2 audits internes et 1 revue de direction par an."
+          text={t("noEvents")}
         />
       ) : (
         <div className="flex flex-col gap-2.5">
@@ -325,29 +457,50 @@ export function PlanningPanel() {
                   <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
                     {e.id} · {fmtDate(e.date)}
                   </div>
-                  <div className="my-1 text-sm font-semibold">{e.type}</div>
+                  <div className="my-1 text-sm font-semibold">{tr(e.type)}</div>
                   {e.servicesConcernes.length > 0 && (
                     <div className="text-xs text-muted">
-                      Services : {e.servicesConcernes.join(", ")}
+                      {t("servicesLabel")} : {e.servicesConcernes.map(tr).join(", ")}
                     </div>
                   )}
                 </div>
                 <StatusStamp label={e.statut} />
               </div>
+              {(e.ordreDuJour || e.compteRendu) && (
+                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-muted">
+                  {e.ordreDuJour || e.compteRendu}
+                </p>
+              )}
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <Btn
                   kind="ghost"
                   className="px-2.5 py-1.5 text-xs"
-                  onClick={() => setForm({ ...emptyEvent(), ...e })}
+                  onClick={() => openEventForm(e)}
                 >
-                  Modifier
+                  {t("edit")}
                 </Btn>
+                <Btn
+                  kind="ghost"
+                  className="px-2.5 py-1.5 text-xs"
+                  onClick={() => void downloadEventPdf(e.id)}
+                >
+                  <Download size={12} /> PDF {locale.toUpperCase()}
+                </Btn>
+                {e.type === "Audit interne" && (
+                  <Btn
+                    kind="ghost"
+                    className="px-2.5 py-1.5 text-xs"
+                    onClick={() => void askPrep("audit-prep", e)}
+                  >
+                    <Sparkles size={12} /> {t("aiSynthShort")}
+                  </Btn>
+                )}
                 <Btn
                   kind="danger"
                   className="px-2.5 py-1.5 text-xs"
                   onClick={() => void remove(e.id)}
                 >
-                  Supprimer
+                  {t("delete")}
                 </Btn>
               </div>
             </div>

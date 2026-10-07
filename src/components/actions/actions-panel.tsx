@@ -22,6 +22,7 @@ import {
 } from "@/lib/constants";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
 import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 import { daysUntil, fmtDate, todayISO } from "@/lib/utils";
 
 type ActionForm = {
@@ -57,6 +58,7 @@ function emptyAction(serviceId: string): ActionForm {
 
 export function ActionsPanel() {
   const searchParams = useSearchParams();
+  const { t, tr } = useSmqLocale();
   const { data, loading, error, refresh } = useSmqFilteredData();
   const [form, setForm] = useState<ActionForm | null>(null);
   const [prefillNcId, setPrefillNcId] = useState<string | null>(null);
@@ -103,7 +105,7 @@ export function ActionsPanel() {
     try {
       const response = await fetch("/api/actions/pdf");
       if (!response.ok) {
-        throw new Error("PDF indisponible");
+        throw new Error(t("pdfUnavailable"));
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -113,7 +115,7 @@ export function ActionsPanel() {
       anchor.click();
       URL.revokeObjectURL(url);
     } catch {
-      window.alert("Impossible de télécharger le PDF. Vérifiez votre connexion administrateur.");
+      window.alert(t("pdfActionsFailAuth"));
     } finally {
       setDownloadingPdf(false);
     }
@@ -121,11 +123,7 @@ export function ActionsPanel() {
 
   return (
     <div>
-      <SmqPageHeader
-        title="Actions"
-        sub="Plan d'actions correctives, préventives et d'amélioration"
-        code="ENR-CIFRA-QHSE 005"
-      />
+      <SmqPageHeader title={t("actionsTitle")} sub={t("actionsSub")} code="ENR-CIFRA-QHSE 005" />
 
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <SelectInput
@@ -137,10 +135,10 @@ export function ActionsPanel() {
         <div className="hidden flex-1 sm:block" />
         <Btn kind="ghost" disabled={downloadingPdf} onClick={() => void downloadPdf()}>
           <Download size={14} />
-          {downloadingPdf ? "PDF…" : "Télécharger PDF"}
+          {downloadingPdf ? t("pdfLoading") : t("downloadPdf")}
         </Btn>
         <Btn onClick={() => setForm(emptyAction(services[0]?.id ?? ""))}>
-          <Plus size={14} /> Nouvelle action
+          <Plus size={14} /> {t("newAction")}
         </Btn>
       </div>
 
@@ -148,7 +146,7 @@ export function ActionsPanel() {
         <div className="mb-4 rounded-[10px] border-[1.5px] border-ink bg-surface p-4.5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display font-bold">
-              {form.id ? `Modifier ${form.id}` : "Nouvelle action"}
+              {form.id ? `${t("edit")} ${form.id}` : t("newAction")}
             </h2>
             <button type="button" onClick={() => setForm(null)} className="cursor-pointer">
               <X size={16} />
@@ -156,14 +154,14 @@ export function ActionsPanel() {
           </div>
 
           <div className="mb-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Field label="Type">
+            <Field label={t("fieldType")}>
               <SelectInput
                 value={form.type}
                 onChange={(type) => setForm({ ...form, type })}
                 options={ACTION_TYPES}
               />
             </Field>
-            <Field label="Service">
+            <Field label={t("fieldService")}>
               <select
                 value={form.serviceId}
                 onChange={(e) => setForm({ ...form, serviceId: e.target.value })}
@@ -171,45 +169,45 @@ export function ActionsPanel() {
               >
                 {services.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {tr(s.name)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Priorité">
+            <Field label={t("fieldPriority")}>
               <SelectInput
                 value={form.priorite}
                 onChange={(priorite) => setForm({ ...form, priorite })}
                 options={ACTION_PRIORITES}
               />
             </Field>
-            <Field label="Origine (n° NC, audit, réunion...)">
+            <Field label={t("fieldOrigin")}>
               <TextInput
                 value={form.origine}
                 onChange={(origine) => setForm({ ...form, origine })}
               />
             </Field>
-            <Field label="Responsable">
+            <Field label={t("fieldResponsible")}>
               <TextInput
                 value={form.responsable}
                 onChange={(responsable) => setForm({ ...form, responsable })}
               />
             </Field>
-            <Field label="Échéance">
+            <Field label={t("fieldDueDate")}>
               <TextInput
                 type="date"
                 value={form.echeance}
                 onChange={(echeance) => setForm({ ...form, echeance })}
               />
             </Field>
-            <Field label="Statut">
+            <Field label={t("fieldStatus")}>
               <SelectInput
                 value={form.statut}
                 onChange={(statut) => setForm({ ...form, statut })}
                 options={ACTION_STATUTS}
               />
             </Field>
-            <Field label="Date de création">
+            <Field label={t("fieldCreated")}>
               <TextInput
                 type="date"
                 value={form.dateCreation}
@@ -218,7 +216,7 @@ export function ActionsPanel() {
             </Field>
           </div>
 
-          <Field label="Description de l'action">
+          <Field label={t("fieldActionDescription")}>
             <TextArea
               value={form.description}
               onChange={(description) => setForm({ ...form, description })}
@@ -227,24 +225,24 @@ export function ActionsPanel() {
 
           <div className="h-2.5" />
 
-          <Field label="Vérification de l'efficacité (si réalisée)">
+          <Field label={t("fieldEffectiveness")}>
             <TextArea
               value={form.efficacite}
               onChange={(efficacite) => setForm({ ...form, efficacite })}
-              placeholder="Preuve que l'action a résolu le problème durablement"
+              placeholder={t("phEffectiveness")}
             />
           </Field>
 
           <div className="mt-3.5">
             <Btn onClick={() => void save()}>
-              <Check size={14} /> Enregistrer
+              <Check size={14} /> {t("save")}
             </Btn>
           </div>
         </div>
       )}
 
       {filtered.length === 0 ? (
-        <EmptyState icon={ClipboardCheck} text="Aucune action ne correspond au filtre." />
+        <EmptyState icon={ClipboardCheck} text={t("actionsNoMatch")} />
       ) : (
         <div className="flex flex-col gap-2.5">
           {filtered.map((a) => {
@@ -264,15 +262,15 @@ export function ActionsPanel() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
-                      {a.id} · {a.type} · {a.service.name}
-                      {a.origine && ` · origine ${a.origine}`}
+                      {a.id} · {tr(a.type)} · {tr(a.service.name)}
+                      {a.origine && ` · ${t("actionsOrigin")} ${a.origine}`}
                     </div>
                     <CordisteRichText id={a.id} text={a.description} className="my-1" />
                     <div className="text-xs text-muted">
                       {a.responsable && `Resp. ${a.responsable} · `}
-                      Priorité {a.priorite} · Échéance {fmtDate(a.echeance)}
+                      {t("actionsPriority")} {tr(a.priorite)} · {t("actionsDue")} {fmtDate(a.echeance)}
                       {late && (
-                        <span className="font-bold text-rust"> · EN RETARD</span>
+                        <span className="font-bold text-rust"> · {t("actionsLate")}</span>
                       )}
                     </div>
                   </div>
@@ -299,14 +297,14 @@ export function ActionsPanel() {
                       })
                     }
                   >
-                    Modifier
+                    {t("edit")}
                   </Btn>
                   <Btn
                     kind="danger"
                     className="px-2.5 py-1.5 text-xs"
                     onClick={() => void remove(a.id)}
                   >
-                    Supprimer
+                    {t("delete")}
                   </Btn>
                 </div>
               </div>
