@@ -3,6 +3,7 @@ import path from "path";
 import jsPDF from "jspdf";
 import { getSmqPdfLabels, type SmqLocale } from "@/lib/smq-i18n";
 import { translateSmqStoredLabel } from "@/lib/smq-i18n-ui";
+import { localizeSmqEventsForLocale } from "@/lib/smq-translate-text";
 import type { SmqEvent } from "@/lib/types";
 import { fmtDate } from "@/lib/utils";
 
@@ -51,7 +52,9 @@ function writeBlock(
   return y + 4;
 }
 
-export function buildSmqEventPdf(event: SmqEvent, locale: SmqLocale): Uint8Array {
+export async function buildSmqEventPdf(event: SmqEvent, locale: SmqLocale): Promise<Uint8Array> {
+  const [eventLoc] = await localizeSmqEventsForLocale([event], locale);
+  const ev = eventLoc ?? event;
   const L = getSmqPdfLabels(locale);
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const logo = loadLogoAsset();
@@ -75,21 +78,21 @@ export function buildSmqEventPdf(event: SmqEvent, locale: SmqLocale): Uint8Array
   doc.setFontSize(9);
   doc.setTextColor(90, 90, 90);
   doc.text(`${L.generatedOn} ${generatedAt}`, titleX, MARGIN + 13);
-  doc.text(`${L.docCodeAudit} · ${event.id}`, pageWidth - MARGIN - 55, MARGIN + 7);
+  doc.text(`${L.docCodeAudit} · ${ev.id}`, pageWidth - MARGIN - 55, MARGIN + 7);
 
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(9);
   let y = MARGIN + 24;
   const meta: [string, string][] = [
-    [L.reference, event.id],
-    [L.type, translateSmqStoredLabel(event.type, locale)],
-    [L.date, fmtDate(event.date)],
-    [L.status, translateSmqStoredLabel(event.statut, locale)],
+    [L.reference, ev.id],
+    [L.type, translateSmqStoredLabel(ev.type, locale)],
+    [L.date, fmtDate(ev.date, locale)],
+    [L.status, translateSmqStoredLabel(ev.statut, locale)],
     [
       L.services,
-      event.servicesConcernes.map((s) => translateSmqStoredLabel(s, locale)).join(", ") || L.none,
+      ev.servicesConcernes.map((s) => translateSmqStoredLabel(s, locale)).join(", ") || L.none,
     ],
-    [L.participants, event.participants.trim() || L.none],
+    [L.participants, ev.participants.trim() || L.none],
   ];
   for (const [label, value] of meta) {
     doc.setFont("helvetica", "bold");
@@ -101,8 +104,8 @@ export function buildSmqEventPdf(event: SmqEvent, locale: SmqLocale): Uint8Array
   }
 
   y += 2;
-  y = writeBlock(doc, L.agenda, event.ordreDuJour, y, contentWidth);
-  y = writeBlock(doc, L.minutes, event.compteRendu, y, contentWidth);
+  y = writeBlock(doc, L.agenda, ev.ordreDuJour, y, contentWidth);
+  y = writeBlock(doc, L.minutes, ev.compteRendu, y, contentWidth);
 
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);

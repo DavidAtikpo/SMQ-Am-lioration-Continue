@@ -1,8 +1,11 @@
+"use client";
+
 import {
   formatCordisteDescriptionForDisplay,
   isCordisteRecord,
   sanitizeCordisteText,
 } from "@/lib/cordiste-text";
+import { SmqTranslatedText } from "@/components/ui/smq-translated-text";
 
 type CordisteRichTextProps = {
   id: string;
@@ -18,7 +21,7 @@ export function CordisteRichText({ id, text, className = "" }: CordisteRichTextP
 
   return (
     <div className={className}>
-      <div className="whitespace-pre-line text-sm font-semibold">{summary}</div>
+      <SmqTranslatedText text={summary} className="text-sm font-semibold" />
       {signatures.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-3">
           {signatures.map((src, index) => (

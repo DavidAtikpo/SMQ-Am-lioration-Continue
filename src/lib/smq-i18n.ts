@@ -37,6 +37,9 @@ const PDF_LABELS = {
     tableParticipants: "Participants",
     tableAgenda: "Ordre du jour",
     noEventsPeriod: "Aucun événement planifié pour cette période.",
+    detailsSection: "Détails — ordre du jour et comptes-rendus",
+    lineAgenda: "Ordre du jour",
+    lineMinutes: "Compte-rendu",
   },
   en: {
     docCodeAudit: "SMQ-AUDIT-INT",
@@ -68,6 +71,9 @@ const PDF_LABELS = {
     tableParticipants: "Participants",
     tableAgenda: "Agenda",
     noEventsPeriod: "No events scheduled for this period.",
+    detailsSection: "Details — agenda and minutes",
+    lineAgenda: "Agenda",
+    lineMinutes: "Minutes",
   },
 } as const;
 

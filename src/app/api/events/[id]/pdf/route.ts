@@ -48,7 +48,7 @@ export async function GET(
     }
 
     const event = mapEvent(row);
-    const pdfBytes = buildSmqEventPdf(event, locale);
+    const pdfBytes = await buildSmqEventPdf(event, locale);
     const fileName = `${event.id}-${locale}.pdf`;
 
     return new NextResponse(Buffer.from(pdfBytes), {

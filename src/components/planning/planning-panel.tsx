@@ -13,6 +13,7 @@ import {
   TextInput,
 } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
+import { SmqTranslatedText } from "@/components/ui/smq-translated-text";
 import { COLORS, EVENT_STATUTS, EVENT_TYPES } from "@/lib/constants";
 import { useSmqData } from "@/hooks/use-smq-data";
 import { useSmqLocale } from "@/hooks/use-smq-locale";
@@ -455,7 +456,7 @@ export function PlanningPanel() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
-                    {e.id} · {fmtDate(e.date)}
+                    {e.id} · {fmtDate(e.date, locale)}
                   </div>
                   <div className="my-1 text-sm font-semibold">{tr(e.type)}</div>
                   {e.servicesConcernes.length > 0 && (
@@ -467,9 +468,11 @@ export function PlanningPanel() {
                 <StatusStamp label={e.statut} />
               </div>
               {(e.ordreDuJour || e.compteRendu) && (
-                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-muted">
-                  {e.ordreDuJour || e.compteRendu}
-                </p>
+                <SmqTranslatedText
+                  text={e.ordreDuJour || e.compteRendu}
+                  className="mt-2 line-clamp-3 text-xs text-muted"
+                  as="p"
+                />
               )}
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <Btn

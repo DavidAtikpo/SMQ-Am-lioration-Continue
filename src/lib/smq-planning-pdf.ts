@@ -4,6 +4,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getSmqPdfLabels, type SmqLocale } from "@/lib/smq-i18n";
 import { translateSmqStoredLabel } from "@/lib/smq-i18n-ui";
+import { localizeSmqEventsForLocale } from "@/lib/smq-translate-text";
 import { SMQ_RHYTHME } from "@/lib/smq-rhythm";
 import type { SmqEvent } from "@/lib/types";
 import { fmtDate } from "@/lib/utils";
@@ -31,14 +32,15 @@ function rhythmLine(label: string, fait: number, cible: number): string {
   return `${label} : ${fait} / ${cible}`;
 }
 
-export function buildSmqPlanningPdf(
+export async function buildSmqPlanningPdf(
   events: SmqEvent[],
   options: { year: number; allYears?: boolean; locale?: SmqLocale },
-): Uint8Array {
-  const L = getSmqPdfLabels(options.locale ?? "fr");
+): Promise<Uint8Array> {
+  const locale = options.locale ?? "fr";
+  const L = getSmqPdfLabels(locale);
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const logo = loadLogoAsset();
-  const generatedAt = new Date().toLocaleDateString(options.locale === "en" ? "en-GB" : "fr-FR", {
+  const generatedAt = new Date().toLocaleDateString(locale === "en" ? "en-GB" : "fr-FR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -46,7 +48,8 @@ export function buildSmqPlanningPdf(
   const { year, allYears } = options;
   const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 
-  const yearEvents = allYears ? sorted : sorted.filter((e) => e.date.startsWith(String(year)));
+  const yearEventsRaw = allYears ? sorted : sorted.filter((e) => e.date.startsWith(String(year)));
+  const yearEvents = await localizeSmqEventsForLocale(yearEventsRaw, locale);
   const reunions = yearEvents.filter((e) => e.type === "Réunion interne").length;
   const audits = yearEvents.filter((e) => e.type === "Audit interne").length;
   const revues = yearEvents.filter((e) => e.type === "Revue de Direction").length;
@@ -105,10 +108,10 @@ export function buildSmqPlanningPdf(
         ? [["—", "—", "—", "—", "—", "—", L.noEventsPeriod]]
         : yearEvents.map((e) => [
             e.id,
-            translateSmqStoredLabel(e.type, options.locale ?? "fr"),
-            fmtDate(e.date),
-            translateSmqStoredLabel(e.statut, options.locale ?? "fr"),
-            e.servicesConcernes.map((s) => translateSmqStoredLabel(s, options.locale ?? "fr")).join(", ") ||
+            translateSmqStoredLabel(e.type, locale),
+            fmtDate(e.date, locale),
+            translateSmqStoredLabel(e.statut, locale),
+            e.servicesConcernes.map((s) => translateSmqStoredLabel(s, locale)).join(", ") ||
               L.none,
             clipText(e.participants || L.none, 48),
             clipText(e.ordreDuJour || L.none, 120),
@@ -146,7 +149,7 @@ export function buildSmqPlanningPdf(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("Détails — ordre du jour et comptes-rendus", MARGIN, detailY);
+    doc.text(L.detailsSection, MARGIN, detailY);
     detailY += 6;
 
     for (const e of withDetails) {
@@ -157,17 +160,21 @@ export function buildSmqPlanningPdf(
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.text(`${e.id} · ${e.type} · ${fmtDate(e.date)}`, MARGIN, detailY);
+      doc.text(
+        `${e.id} · ${translateSmqStoredLabel(e.type, locale)} · ${fmtDate(e.date, locale)}`,
+        MARGIN,
+        detailY,
+      );
       detailY += 4;
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       const blocks: string[] = [];
       if (e.ordreDuJour?.trim()) {
-        blocks.push(`Ordre du jour :\n${e.ordreDuJour.trim()}`);
+        blocks.push(`${L.lineAgenda} :\n${e.ordreDuJour.trim()}`);
       }
       if (e.compteRendu?.trim()) {
-        blocks.push(`Compte-rendu :\n${e.compteRendu.trim()}`);
+        blocks.push(`${L.lineMinutes} :\n${e.compteRendu.trim()}`);
       }
       const body = blocks.join("\n\n");
       const lines = doc.splitTextToSize(body, pageWidth - MARGIN * 2);

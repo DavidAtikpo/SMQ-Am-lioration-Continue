@@ -26,7 +26,7 @@ export async function GET(request: Request) {
       : data.events.filter((e) => e.date.startsWith(String(year)));
 
     const locale = parseSmqLocale(searchParams.get("lang"));
-    const pdfBytes = buildSmqPlanningPdf(events, { year, allYears, locale });
+    const pdfBytes = await buildSmqPlanningPdf(events, { year, allYears, locale });
     const fileName = allYears
       ? `planification-smq-${new Date().toISOString().slice(0, 10)}.pdf`
       : `planification-smq-${year}.pdf`;
