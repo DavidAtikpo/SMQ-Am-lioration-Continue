@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSmqLocale } from "@/hooks/use-smq-locale";
+import { needsEnglishTranslation } from "@/lib/smq-looks-french";
 
 const clientCache = new Map<string, string>();
 
@@ -21,7 +22,7 @@ export function SmqTranslatedText({
 
   useEffect(() => {
     const trimmed = text.trim();
-    if (!trimmed || locale === "fr") {
+    if (!trimmed || !needsEnglishTranslation(trimmed, locale)) {
       setDisplay(text);
       return;
     }
@@ -39,9 +40,9 @@ export function SmqTranslatedText({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locale, texts: [trimmed] }),
     })
-      .then((res) => res.json())
-      .then((json: { texts?: string[] }) => {
-        if (cancelled) return;
+      .then(async (res) => {
+        const json = (await res.json()) as { texts?: string[]; error?: string };
+        if (cancelled || !res.ok) return;
         const next = json.texts?.[0]?.trim() || trimmed;
         clientCache.set(cacheKey, next);
         setDisplay(next);

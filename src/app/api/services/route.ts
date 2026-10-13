@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { assertAdminApi } from "@/lib/admin-require";
 import { prisma } from "@/lib/db";
+import { parseSmqLocale } from "@/lib/smq-i18n";
 import { getSmqData } from "@/lib/smq-context";
+import { localizeSmqDataForLocale } from "@/lib/smq-translate-text";
 
-export async function GET() {
+export async function GET(request: Request) {
   const denied = await assertAdminApi();
   if (denied) return denied;
 
   try {
-    const data = await getSmqData();
+    const locale = parseSmqLocale(new URL(request.url).searchParams.get("locale"));
+    const raw = await getSmqData();
+    const data = await localizeSmqDataForLocale(raw, locale);
     return NextResponse.json(data);
   } catch (error) {
     console.error(error);

@@ -1,3 +1,4 @@
+import { getAnthropicApiKey } from "@/lib/anthropic-api-key";
 import { SYSTEM_PROMPT } from "@/lib/constants";
 import { aiLocaleInstruction, parseSmqLocale, type SmqLocale } from "@/lib/smq-i18n";
 import type { AiRequest } from "@/lib/types";
@@ -86,8 +87,7 @@ ${JSON.stringify(event)}`;
 }
 
 function getApiKey(): string | null {
-  const key = process.env.ANTHROPIC_API_KEY?.trim().replace(/^["']|["']$/g, "");
-  return key || null;
+  return getAnthropicApiKey();
 }
 
 function getModelsToTry(): string[] {

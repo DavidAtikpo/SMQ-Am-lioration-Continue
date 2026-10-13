@@ -7,9 +7,13 @@ export async function POST(request: Request) {
   if (denied) return denied;
 
   try {
-    const body = (await request.json().catch(() => ({}))) as { year?: number };
+    const body = (await request.json().catch(() => ({}))) as {
+      year?: number;
+      zone?: string;
+    };
     const year = body.year ?? new Date().getFullYear();
-    const result = await ensureQhseCalendar(year);
+    const zone = body.zone === "France" ? "France" : "Togo";
+    const result = await ensureQhseCalendar(year, zone);
     return NextResponse.json({ ok: true, year, ...result });
   } catch (error) {
     console.error(error);

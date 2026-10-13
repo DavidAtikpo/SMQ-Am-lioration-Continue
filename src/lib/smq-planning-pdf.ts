@@ -1,35 +1,17 @@
-import fs from "fs";
-import path from "path";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getSmqPdfLabels, type SmqLocale } from "@/lib/smq-i18n";
 import { translateSmqStoredLabel } from "@/lib/smq-i18n-ui";
 import { localizeSmqEventsForLocale } from "@/lib/smq-translate-text";
-import { SMQ_RHYTHME } from "@/lib/smq-rhythm";
 import type { SmqEvent } from "@/lib/types";
+import { drawSmqPlanningPdfHeader, SMQ_PDF_MARGIN as MARGIN } from "@/lib/smq-pdf-header";
+import { plainTextFromMarkdown, renderMarkdownInPdf } from "@/lib/smq-pdf-markdown";
 import { fmtDate } from "@/lib/utils";
-
-const MARGIN = 10;
-const DOC_CODE = "SMQ-PLAN";
-
-function loadLogoAsset(): { dataUrl: string; format: "PNG" | "JPEG" } | null {
-  const logoPath = path.join(process.cwd(), "public", "logo-cides.png");
-  if (!fs.existsSync(/* turbopackIgnore: true */ logoPath)) return null;
-  const buffer = fs.readFileSync(/* turbopackIgnore: true */ logoPath);
-  return {
-    dataUrl: `data:image/png;base64,${buffer.toString("base64")}`,
-    format: "PNG",
-  };
-}
 
 function clipText(text: string, max: number): string {
   const t = text.replace(/\s+/g, " ").trim();
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
-}
-
-function rhythmLine(label: string, fait: number, cible: number): string {
-  return `${label} : ${fait} / ${cible}`;
 }
 
 export async function buildSmqPlanningPdf(
@@ -39,7 +21,6 @@ export async function buildSmqPlanningPdf(
   const locale = options.locale ?? "fr";
   const L = getSmqPdfLabels(locale);
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  const logo = loadLogoAsset();
   const generatedAt = new Date().toLocaleDateString(locale === "en" ? "en-GB" : "fr-FR", {
     day: "2-digit",
     month: "long",
@@ -54,36 +35,14 @@ export async function buildSmqPlanningPdf(
   const audits = yearEvents.filter((e) => e.type === "Audit interne").length;
   const revues = yearEvents.filter((e) => e.type === "Revue de Direction").length;
 
-  const titleX = MARGIN + (logo ? 26 : 0);
-  if (logo) {
-    doc.addImage(logo.dataUrl, logo.format, MARGIN, MARGIN, 22, 22);
-  }
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.setTextColor(0, 0, 0);
-  doc.text(L.planningTitle, titleX, MARGIN + 8);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(80, 80, 80);
-  const periodLabel = allYears ? L.allPeriods : `${L.year} ${year}`;
-  doc.text(`CI.DES — ${periodLabel} — ${L.generatedOn} ${generatedAt}`, titleX, MARGIN + 14);
-  doc.text(`DOC N° ${L.docCodePlan}`, doc.internal.pageSize.getWidth() - MARGIN - 36, MARGIN + 8);
-
-  doc.setFontSize(8);
-  doc.setTextColor(50, 50, 50);
-  const rhythmY = MARGIN + 20;
-  doc.text(
-    [
-      rhythmLine(L.internalMeetings, reunions, SMQ_RHYTHME.reunionInterne.cibleParAn),
-      rhythmLine(L.internalAudits, audits, SMQ_RHYTHME.auditInterne.cibleParAn),
-      rhythmLine(L.managementReview, revues, SMQ_RHYTHME.revueDirection.cibleParAn),
-    ].join("   ·   "),
-    titleX,
-    rhythmY,
-  );
-
-  const tableStartY = MARGIN + 26;
+  const tableStartY = await drawSmqPlanningPdfHeader(doc, {
+    labels: L,
+    locale,
+    year,
+    allYears,
+    generatedAt,
+    rhythm: { reunions, audits, revues },
+  });
   const pageWidth = doc.internal.pageSize.getWidth();
   const tableWidth = pageWidth - MARGIN * 2;
   const colRatios = [0.14, 0.12, 0.09, 0.1, 0.18, 0.15, 0.22] as const;
@@ -114,7 +73,7 @@ export async function buildSmqPlanningPdf(
             e.servicesConcernes.map((s) => translateSmqStoredLabel(s, locale)).join(", ") ||
               L.none,
             clipText(e.participants || L.none, 48),
-            clipText(e.ordreDuJour || L.none, 120),
+            clipText(plainTextFromMarkdown(e.ordreDuJour || L.none), 120),
           ]),
     styles: {
       font: "helvetica",
@@ -167,19 +126,45 @@ export async function buildSmqPlanningPdf(
       );
       detailY += 4;
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      const blocks: string[] = [];
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const renderOpts = {
+        margin: MARGIN,
+        maxWidth: pageWidth - MARGIN * 2,
+        pageHeight,
+        fontSize: 7.5,
+        orientation: "landscape" as const,
+        onNewPage: () => {
+          detailY = MARGIN + 8;
+        },
+      };
+
       if (e.ordreDuJour?.trim()) {
-        blocks.push(`${L.lineAgenda} :\n${e.ordreDuJour.trim()}`);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(32, 38, 46);
+        if (detailY > pageHeight - 20) {
+          doc.addPage("landscape");
+          detailY = MARGIN + 8;
+        }
+        doc.text(`${L.lineAgenda}`, MARGIN, detailY);
+        detailY += 4;
+        detailY = renderMarkdownInPdf(doc, e.ordreDuJour.trim(), detailY, renderOpts);
+        detailY += 2;
       }
+
       if (e.compteRendu?.trim()) {
-        blocks.push(`${L.lineMinutes} :\n${e.compteRendu.trim()}`);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(32, 38, 46);
+        if (detailY > pageHeight - 20) {
+          doc.addPage("landscape");
+          detailY = MARGIN + 8;
+        }
+        doc.text(`${L.lineMinutes}`, MARGIN, detailY);
+        detailY += 4;
+        detailY = renderMarkdownInPdf(doc, e.compteRendu.trim(), detailY, renderOpts);
+        detailY += 5;
       }
-      const body = blocks.join("\n\n");
-      const lines = doc.splitTextToSize(body, pageWidth - MARGIN * 2);
-      doc.text(lines, MARGIN, detailY);
-      detailY += lines.length * 3.2 + 5;
     }
   }
 

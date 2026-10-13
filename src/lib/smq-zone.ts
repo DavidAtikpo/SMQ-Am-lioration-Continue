@@ -76,3 +76,27 @@ export function filterIndicatorsByZone<T extends { period?: string; label?: stri
   if (filter === "Monde") return indicators;
   return indicators.filter((indicator) => indicatorMatchesZone(indicator, filter));
 }
+
+/** Planification SMQ : zone vide = calendrier groupe (visible France et Togo). */
+export function eventMatchesZone(recordZone: string | null | undefined, filter: SmqZone): boolean {
+  if (filter === "Monde") return true;
+  const z = (recordZone ?? "").trim();
+  if (!z) return true;
+  return z === filter;
+}
+
+export function filterEventsByZone<T extends { zone?: string | null }>(
+  items: T[],
+  filter: SmqZone,
+): T[] {
+  if (filter === "Monde") return items;
+  return items.filter((item) => eventMatchesZone(item.zone, filter));
+}
+
+export const SMQ_EVENT_ZONES = ["", "France", "Togo"] as const;
+export type SmqEventZone = (typeof SMQ_EVENT_ZONES)[number];
+
+export function defaultEventZoneForFilter(filter: SmqZone): SmqEventZone {
+  if (filter === "France" || filter === "Togo") return filter;
+  return "Togo";
+}

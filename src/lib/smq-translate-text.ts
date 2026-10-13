@@ -1,46 +1,40 @@
 import { aiLocaleInstruction, type SmqLocale } from "@/lib/smq-i18n";
-import type { SmqEvent } from "@/lib/types";
+import {
+  looksFrench,
+  needsEnglishTranslation,
+  translationLooksSuccessful,
+} from "@/lib/smq-looks-french";
+import { getAnthropicApiKey } from "@/lib/anthropic-api-key";
+import { applyStaticTranslations, staticEnForFrenchText } from "@/lib/smq-static-en";
+import type { SmqData, SmqEvent } from "@/lib/types";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
-const MAX_CHUNK_ITEMS = 12;
-const MAX_CHUNK_CHARS = 14_000;
+const MAX_CHUNK_ITEMS = 8;
+const MAX_CHUNK_CHARS = 4_000;
+const MAX_LINE_GROUP_CHARS = 2_000;
 
 const translationCache = new Map<string, string>();
 
 function getApiKey(): string | null {
-  const key = process.env.ANTHROPIC_API_KEY?.trim().replace(/^["']|["']$/g, "");
-  return key || null;
+  return getAnthropicApiKey();
 }
 
-function looksFrench(text: string): boolean {
-  const sample = text.slice(0, 400).toLowerCase();
-  return /[àâäéèêëïîôùûüç]|(\b(le|la|les|des|une|pour|avec|dans|audit|réunion)\b)/.test(
-    sample,
+function extractAssistantText(data: {
+  content?: Array<{ type: string; text?: string }>;
+}): string {
+  return (
+    data.content
+      ?.filter((b) => b.type === "text")
+      .map((b) => b.text ?? "")
+      .join("\n")
+      .trim() ?? ""
   );
 }
 
-async function callTranslateBatch(texts: string[], locale: SmqLocale): Promise<string[]> {
+/** Traduction directe d'un bloc Markdown (comptes-rendus d'audit). */
+async function callTranslateDocument(text: string, locale: SmqLocale): Promise<string | null> {
   const apiKey = getApiKey();
-  if (!apiKey || texts.length === 0) return texts;
-
-  const localeLine = aiLocaleInstruction(locale);
-  const payload = JSON.stringify(texts);
-  const body = {
-    max_tokens: 8192,
-    messages: [
-      {
-        role: "user" as const,
-        content: `${localeLine}
-
-Translate each string in the following JSON array to English. Keep line breaks, numbering, and structure. Do not add commentary.
-
-Return ONLY a valid JSON array of strings with the same length and order as the input.
-
-Input:
-${payload}`,
-      },
-    ],
-  };
+  if (!apiKey || locale !== "en") return null;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -49,21 +43,74 @@ ${payload}`,
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({ model: DEFAULT_MODEL, ...body }),
+    body: JSON.stringify({
+      model: DEFAULT_MODEL,
+      max_tokens: 16_384,
+      messages: [
+        {
+          role: "user",
+          content: `${aiLocaleInstruction(locale)}
+
+Translate the following French QMS document to English.
+Preserve Markdown exactly (# and ## headings, **bold**, bullet lists, markdown tables with | pipes).
+Keep names (people, companies), reference codes (EVT-…, QHSE-…), and dates unchanged.
+Output ONLY the translated document — no introduction or commentary.
+
+---BEGIN---
+${text}
+---END---`,
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    console.error("SMQ translate document HTTP", res.status);
+    return null;
+  }
+
+  const raw = extractAssistantText((await res.json()) as { content?: Array<{ type: string; text?: string }> });
+  if (!raw) return null;
+  return raw.replace(/^---BEGIN---\s*/i, "").replace(/\s*---END---\s*$/i, "").trim();
+}
+
+async function callTranslateBatch(texts: string[], locale: SmqLocale): Promise<string[]> {
+  const apiKey = getApiKey();
+  if (!apiKey || texts.length === 0) return texts;
+
+  const localeLine = aiLocaleInstruction(locale);
+  const payload = JSON.stringify(texts);
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: DEFAULT_MODEL,
+      max_tokens: 16_384,
+      messages: [
+        {
+          role: "user",
+          content: `${localeLine}
+
+Translate each string in the following JSON array to English.
+Preserve Markdown if present (# headings, **bold**, bullet lists, tables with | pipes).
+Keep line breaks, numbering, and structure. Do not add commentary.
+
+Return ONLY a valid JSON array of strings with the same length and order as the input.
+
+Input:
+${payload}`,
+        },
+      ],
+    }),
   });
 
   if (!res.ok) return texts;
 
-  const data = (await res.json()) as {
-    content?: Array<{ type: string; text?: string }>;
-  };
-  const raw =
-    data.content
-      ?.filter((b) => b.type === "text")
-      .map((b) => b.text ?? "")
-      .join("\n")
-      .trim() ?? "";
-
+  const raw = extractAssistantText((await res.json()) as { content?: Array<{ type: string; text?: string }> });
   const jsonMatch = raw.match(/\[[\s\S]*\]/);
   if (!jsonMatch) return texts;
 
@@ -102,6 +149,118 @@ async function translateChunk(texts: string[], locale: SmqLocale): Promise<strin
   return out;
 }
 
+function splitTextForTranslation(text: string): string[] {
+  const lines = text.split("\n");
+  const chunks: string[] = [];
+  let buf = "";
+
+  const flush = () => {
+    const t = buf.trim();
+    if (t) chunks.push(t);
+    buf = "";
+  };
+
+  for (const line of lines) {
+    const candidate = buf ? `${buf}\n${line}` : line;
+    if (candidate.length > MAX_LINE_GROUP_CHARS && buf) {
+      flush();
+      buf = line;
+    } else {
+      buf = candidate;
+    }
+  }
+  flush();
+
+  return chunks.length > 0 ? chunks : [text];
+}
+
+async function translatePart(part: string, locale: SmqLocale): Promise<string> {
+  if (part.length >= 80) {
+    const doc = await callTranslateDocument(part, locale);
+    if (doc && doc.trim() !== part.trim()) return doc;
+  }
+
+  const [batch] = await translateChunk([part], locale);
+  const out = batch ?? part;
+  if (out.trim() !== part.trim()) return out;
+
+  if (part.length >= 80) {
+    const doc = await callTranslateDocument(part, locale);
+    if (doc && doc.trim() !== part.trim()) return doc;
+  }
+
+  return out;
+}
+
+async function translateByLines(text: string, locale: SmqLocale): Promise<string> {
+  if (!getApiKey()) return text;
+
+  const lines = text.split("\n");
+  const out: string[] = [];
+
+  for (const line of lines) {
+    const core = line.trim();
+    if (!core || !needsEnglishTranslation(core, locale)) {
+      out.push(line);
+      continue;
+    }
+
+    let translated = core;
+    const doc = await callTranslateDocument(core, locale);
+    if (doc?.trim() && doc.trim() !== core) {
+      translated = doc.trim();
+    } else {
+      const [one] = await translateChunk([core], locale);
+      if (one?.trim() && one.trim() !== core) translated = one.trim();
+    }
+
+    out.push(line.includes(core) ? line.replace(core, translated) : translated);
+  }
+
+  return out.join("\n");
+}
+
+async function translateOneLongText(text: string, locale: SmqLocale): Promise<string> {
+  const trimmed = text.trim();
+  if (!trimmed || locale === "fr") return text;
+  if (!needsEnglishTranslation(trimmed, locale)) return text;
+
+  const cacheKey = `en:${trimmed}`;
+  const cached = translationCache.get(cacheKey);
+  if (cached) return cached;
+
+  const afterStatic = locale === "en" ? applyStaticTranslations(trimmed) : trimmed;
+  const staticFull = locale === "en" ? staticEnForFrenchText(afterStatic) : null;
+  const baseline = staticFull ?? afterStatic;
+
+  if (!needsEnglishTranslation(baseline, locale)) {
+    if (baseline !== trimmed) translationCache.set(cacheKey, baseline);
+    return baseline;
+  }
+
+  const parts = splitTextForTranslation(baseline);
+  const translatedParts: string[] = [];
+  for (const part of parts) {
+    translatedParts.push(await translatePart(part, locale));
+  }
+
+  let result = translatedParts.join("\n").trim() ? translatedParts.join("\n") : baseline;
+
+  if (looksFrench(result) && needsEnglishTranslation(result, locale)) {
+    result = await translateByLines(result, locale);
+  }
+
+  if (
+    !looksFrench(result) ||
+    translationLooksSuccessful(baseline, result) ||
+    translationLooksSuccessful(trimmed, result)
+  ) {
+    translationCache.set(cacheKey, result);
+  }
+
+  return result;
+}
+
 /** Traduit les textes libres (ODJ, CR, descriptions…) pour locale EN. */
 export async function translateSmqPlainTexts(
   texts: readonly string[],
@@ -109,42 +268,11 @@ export async function translateSmqPlainTexts(
 ): Promise<string[]> {
   if (locale === "fr") return [...texts];
 
-  const result = [...texts];
-  const pending: { index: number; text: string }[] = [];
-
-  texts.forEach((text, index) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    if (!looksFrench(trimmed)) return;
-
-    const cacheKey = `en:${trimmed}`;
-    const cached = translationCache.get(cacheKey);
-    if (cached) {
-      result[index] = cached;
-      return;
-    }
-    pending.push({ index, text: trimmed });
-  });
-
-  if (pending.length === 0) return result;
-
-  const translated = await translateChunk(
-    pending.map((p) => p.text),
-    locale,
-  );
-
-  pending.forEach((p, i) => {
-    const next = translated[i] ?? p.text;
-    result[p.index] = next;
-    translationCache.set(`en:${p.text}`, next);
-  });
-
-  return result;
+  return Promise.all(texts.map((text) => translateOneLongText(text, locale)));
 }
 
 export async function translateSmqPlainText(text: string, locale: SmqLocale): Promise<string> {
-  const [out] = await translateSmqPlainTexts([text], locale);
-  return out;
+  return translateOneLongText(text, locale);
 }
 
 export async function localizeSmqEventsForLocale(
@@ -153,14 +281,46 @@ export async function localizeSmqEventsForLocale(
 ): Promise<SmqEvent[]> {
   if (locale === "fr" || events.length === 0) return events;
 
-  const flat = events.flatMap((e) => [e.ordreDuJour, e.compteRendu, e.participants]);
-  const translated = await translateSmqPlainTexts(flat, locale);
-  let i = 0;
+  return Promise.all(
+    events.map(async (e) => ({
+      ...e,
+      ordreDuJour: await translateOneLongText(e.ordreDuJour, locale),
+      compteRendu: await translateOneLongText(e.compteRendu, locale),
+      participants: await translateOneLongText(e.participants, locale),
+    })),
+  );
+}
 
-  return events.map((e) => ({
-    ...e,
-    ordreDuJour: translated[i++] ?? e.ordreDuJour,
-    compteRendu: translated[i++] ?? e.compteRendu,
-    participants: translated[i++] ?? e.participants,
+/** Données SMQ affichées (événements, NC, actions) — ne modifie pas la base. */
+export async function localizeSmqDataForLocale(
+  data: SmqData,
+  locale: SmqLocale,
+): Promise<SmqData> {
+  if (locale === "fr") return data;
+
+  const events = await localizeSmqEventsForLocale(data.events, locale);
+
+  const flat: string[] = [];
+  for (const n of data.nonConformites) {
+    flat.push(n.description, n.causeRacine);
+  }
+  for (const a of data.actions) {
+    flat.push(a.description);
+  }
+
+  const translatedFlat = await translateSmqPlainTexts(flat, locale);
+  let j = 0;
+
+  const nonConformites = data.nonConformites.map((n) => ({
+    ...n,
+    description: translatedFlat[j++] ?? n.description,
+    causeRacine: translatedFlat[j++] ?? n.causeRacine,
   }));
+
+  const actions = data.actions.map((a) => ({
+    ...a,
+    description: translatedFlat[j++] ?? a.description,
+  }));
+
+  return { ...data, events, nonConformites, actions };
 }

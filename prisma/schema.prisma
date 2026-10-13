@@ -63,6 +63,8 @@ model Event {
   participants      String   @default("")
   ordreDuJour       String   @default("")
   compteRendu       String   @default("")
+  /// France | Togo | vide = visible sur les deux périmètres (legacy / groupe)
+  zone              String   @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

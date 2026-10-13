@@ -3,6 +3,10 @@ import { assertAdminApi } from "@/lib/admin-require";
 import { getSmqData } from "@/lib/smq-context";
 import { parseSmqLocale } from "@/lib/smq-i18n";
 import { buildSmqPlanningPdf } from "@/lib/smq-planning-pdf";
+import { filterEventsByZone, SMQ_ZONES, type SmqZone } from "@/lib/smq-zone";
+
+/** Traduction IA des comptes-rendus longs avant génération PDF. */
+export const maxDuration = 300;
 
 export async function GET(request: Request) {
   const denied = await assertAdminApi();
@@ -20,16 +24,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Année invalide" }, { status: 400 });
     }
 
+    const zoneParam = searchParams.get("zone");
+    const zone: SmqZone =
+      zoneParam && SMQ_ZONES.includes(zoneParam as SmqZone) ? (zoneParam as SmqZone) : "Monde";
+
     const data = await getSmqData();
-    const events = allYears
+    let events = allYears
       ? data.events
       : data.events.filter((e) => e.date.startsWith(String(year)));
+    events = filterEventsByZone(events, zone);
 
     const locale = parseSmqLocale(searchParams.get("lang"));
     const pdfBytes = await buildSmqPlanningPdf(events, { year, allYears, locale });
+    const zoneSlug = zone === "Monde" ? "" : `-${zone.toLowerCase()}`;
     const fileName = allYears
-      ? `planification-smq-${new Date().toISOString().slice(0, 10)}.pdf`
-      : `planification-smq-${year}.pdf`;
+      ? `planification-smq${zoneSlug}-${new Date().toISOString().slice(0, 10)}.pdf`
+      : `planification-smq${zoneSlug}-${year}.pdf`;
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,

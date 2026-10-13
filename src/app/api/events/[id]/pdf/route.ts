@@ -3,6 +3,8 @@ import { assertAdminApi } from "@/lib/admin-require";
 import { prisma } from "@/lib/db";
 import { parseSmqLocale } from "@/lib/smq-i18n";
 import { buildSmqEventPdf } from "@/lib/smq-event-pdf";
+
+export const maxDuration = 300;
 import type { SmqEvent } from "@/lib/types";
 
 function mapEvent(row: {
@@ -14,6 +16,7 @@ function mapEvent(row: {
   participants: string;
   ordreDuJour: string;
   compteRendu: string;
+  zone?: string;
 }): SmqEvent {
   const servicesConcernes = Array.isArray(row.servicesConcernes)
     ? (row.servicesConcernes as string[])
@@ -27,6 +30,7 @@ function mapEvent(row: {
     participants: row.participants,
     ordreDuJour: row.ordreDuJour,
     compteRendu: row.compteRendu,
+    zone: row.zone ?? "",
   };
 }
 

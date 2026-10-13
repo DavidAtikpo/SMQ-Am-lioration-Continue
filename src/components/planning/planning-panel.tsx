@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CalendarClock, Check, Download, Loader2, Plus, Sparkles, X } from "lucide-react";
 import {
   Btn,
@@ -13,11 +13,16 @@ import {
   TextInput,
 } from "@/components/ui";
 import { AiContent } from "@/components/ui/ai-content";
-import { SmqTranslatedText } from "@/components/ui/smq-translated-text";
 import { COLORS, EVENT_STATUTS, EVENT_TYPES } from "@/lib/constants";
 import { useSmqData } from "@/hooks/use-smq-data";
 import { useSmqLocale } from "@/hooks/use-smq-locale";
+import { useSmqZone } from "@/hooks/use-smq-zone";
 import { pickAuditEventForPrep } from "@/lib/smq-audit-helpers";
+import {
+  defaultEventZoneForFilter,
+  filterEventsByZone,
+  type SmqEventZone,
+} from "@/lib/smq-zone";
 import type { SmqEvent } from "@/lib/types";
 import { fmtDate } from "@/lib/utils";
 
@@ -26,17 +31,19 @@ type EventForm = {
   type: string;
   date: string;
   statut: string;
+  zone: string;
   servicesConcernes: string[];
   participants: string;
   ordreDuJour: string;
   compteRendu: string;
 };
 
-function emptyEvent(): EventForm {
+function emptyEvent(zoneDefault: SmqEventZone = "Togo"): EventForm {
   return {
     type: EVENT_TYPES[0],
     date: "",
     statut: EVENT_STATUTS[0],
+    zone: zoneDefault,
     servicesConcernes: [],
     participants: "",
     ordreDuJour: "",
@@ -44,21 +51,46 @@ function emptyEvent(): EventForm {
   };
 }
 
+function eventZoneBadgeLabel(zone: string, t: (k: "eventZoneGroup") => string, tr: (s: string) => string) {
+  const z = zone.trim();
+  if (!z) return t("eventZoneGroup");
+  return tr(z);
+}
+
 export function PlanningPanel() {
   const { data, loading, error, refresh } = useSmqData();
   const { locale, t, tr } = useSmqLocale();
+  const { zone: zoneFilter } = useSmqZone();
   const [form, setForm] = useState<EventForm | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText] = useState("");
   const [genLoading, setGenLoading] = useState(false);
   const [genMessage, setGenMessage] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [formScrollToken, setFormScrollToken] = useState(0);
+  const formPanelRef = useRef<HTMLDivElement>(null);
+
+  function showEventForm(next: EventForm) {
+    setForm(next);
+    setFormScrollToken((n) => n + 1);
+  }
+
+  /** Scroll à chaque ouverture / changement d’événement édité (pas à chaque frappe). */
+  useEffect(() => {
+    if (!form || formScrollToken === 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [formScrollToken, form]);
 
   if (loading || !data) return <LoadingState error={error} onRetry={() => void refresh()} />;
 
-  const { services, events } = data;
+  const { services, events: allEvents } = data;
+  const events = filterEventsByZone(allEvents, zoneFilter);
   const year = new Date().getFullYear();
   const thisYear = events.filter((e) => e.date.startsWith(String(year)));
+  const defaultZone = defaultEventZoneForFilter(zoneFilter);
   const reunions = thisYear.filter((e) => e.type === "Réunion interne").length;
   const audits = thisYear.filter((e) => e.type === "Audit interne").length;
   const revues = thisYear.filter((e) => e.type === "Revue de Direction").length;
@@ -154,7 +186,9 @@ export function PlanningPanel() {
   async function downloadPlanningPdf() {
     setDownloadingPdf(true);
     try {
-      const response = await fetch(`/api/planning/pdf?year=${year}&lang=${locale}`);
+      const response = await fetch(
+        `/api/planning/pdf?year=${year}&lang=${locale}&zone=${encodeURIComponent(zoneFilter)}`,
+      );
       if (!response.ok) throw new Error(t("pdfUnavailable"));
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -177,7 +211,7 @@ export function PlanningPanel() {
       const res = await fetch("/api/planning/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year }),
+        body: JSON.stringify({ year, zone: defaultZone }),
       });
       const json = (await res.json()) as {
         error?: string;
@@ -200,8 +234,8 @@ export function PlanningPanel() {
   }
 
   function openEventForm(event: SmqEvent) {
-    setForm({ ...emptyEvent(), ...event });
     setAiText("");
+    showEventForm({ ...emptyEvent(), ...event });
   }
 
   async function downloadEventPdf(eventId: string) {
@@ -307,7 +341,7 @@ export function PlanningPanel() {
         <Btn kind="ghost" onClick={() => void askPrep("revue-prep")} disabled={aiLoading}>
           <Sparkles size={14} /> {t("prepManagementReview")}
         </Btn>
-        <Btn onClick={() => setForm(emptyEvent())}>
+        <Btn onClick={() => showEventForm(emptyEvent(defaultZone))}>
           <Plus size={14} /> {t("scheduleEvent")}
         </Btn>
       </div>
@@ -326,9 +360,14 @@ export function PlanningPanel() {
       )}
 
       {form && (
-        <div className="mb-4 rounded-[10px] border-[1.5px] border-ink bg-surface p-4.5">
+        <div
+          ref={formPanelRef}
+          className="mb-4 scroll-mt-6 rounded-[10px] border-[1.5px] border-ink bg-surface p-4.5 shadow-md ring-2 ring-ink/10"
+          role="dialog"
+          aria-labelledby="smq-event-form-title"
+        >
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display font-bold">
+            <h2 id="smq-event-form-title" className="font-display font-bold">
               {form.id ? `${t("edit")} ${form.id}` : t("newEvent")}
             </h2>
             <button type="button" onClick={() => setForm(null)} className="cursor-pointer">
@@ -359,6 +398,20 @@ export function PlanningPanel() {
               />
             </Field>
           </div>
+
+          <Field label={t("fieldEventZone")}>
+            <select
+              value={form.zone}
+              onChange={(e) => setForm({ ...form, zone: e.target.value })}
+              className="mt-0.5 w-full rounded-[7px] border-[1.5px] border-line bg-paper px-3 py-2 text-[13px]"
+            >
+              <option value="">{t("eventZoneGroup")}</option>
+              <option value="France">{tr("France")}</option>
+              <option value="Togo">{tr("Togo")}</option>
+            </select>
+          </Field>
+
+          <div className="h-3" />
 
           <Field label={t("fieldServices")}>
             <div className="mt-0.5 flex flex-wrap gap-1.5">
@@ -458,7 +511,12 @@ export function PlanningPanel() {
                   <div className="break-words font-mono text-[11px] text-muted-light sm:text-[11.5px]">
                     {e.id} · {fmtDate(e.date, locale)}
                   </div>
-                  <div className="my-1 text-sm font-semibold">{tr(e.type)}</div>
+                  <div className="my-1 flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold">{tr(e.type)}</span>
+                    <span className="rounded-full border border-line bg-paper-alt px-2 py-0.5 font-mono text-[10px] text-muted">
+                      {eventZoneBadgeLabel(e.zone, t, tr)}
+                    </span>
+                  </div>
                   {e.servicesConcernes.length > 0 && (
                     <div className="text-xs text-muted">
                       {t("servicesLabel")} : {e.servicesConcernes.map(tr).join(", ")}
@@ -468,11 +526,9 @@ export function PlanningPanel() {
                 <StatusStamp label={e.statut} />
               </div>
               {(e.ordreDuJour || e.compteRendu) && (
-                <SmqTranslatedText
-                  text={e.ordreDuJour || e.compteRendu}
-                  className="mt-2 line-clamp-3 text-xs text-muted"
-                  as="p"
-                />
+                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-muted">
+                  {[e.ordreDuJour, e.compteRendu].filter((s) => s?.trim()).join("\n\n")}
+                </p>
               )}
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <Btn

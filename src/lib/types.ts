@@ -45,6 +45,7 @@ export type SmqEvent = {
   participants: string;
   ordreDuJour: string;
   compteRendu: string;
+  zone: string;
 };
 
 export type SmqIndicator = {

@@ -73,6 +73,7 @@ function mapEvent(event: {
   participants: string;
   ordreDuJour: string;
   compteRendu: string;
+  zone?: string;
 }): SmqEvent {
   const servicesConcernes = Array.isArray(event.servicesConcernes)
     ? (event.servicesConcernes as string[])
@@ -87,6 +88,7 @@ function mapEvent(event: {
     participants: event.participants,
     ordreDuJour: event.ordreDuJour,
     compteRendu: event.compteRendu,
+    zone: event.zone ?? "",
   };
 }
 

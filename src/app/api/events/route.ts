@@ -12,6 +12,7 @@ function mapEvent(event: {
   participants: string;
   ordreDuJour: string;
   compteRendu: string;
+  zone?: string;
 }) {
   return {
     ...event,
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       participants: body.participants ?? "",
       ordreDuJour: body.ordreDuJour ?? "",
       compteRendu: body.compteRendu ?? "",
+      zone: typeof body.zone === "string" ? body.zone : "",
     },
     create: {
       id,
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
       participants: body.participants ?? "",
       ordreDuJour: body.ordreDuJour ?? "",
       compteRendu: body.compteRendu ?? "",
+      zone: typeof body.zone === "string" ? body.zone : "",
     },
   });
 

@@ -1,23 +1,13 @@
-import fs from "fs";
-import path from "path";
 import jsPDF from "jspdf";
+import { resolveSmqLogoAsset } from "@/lib/smq-pdf-assets";
 import { getSmqPdfLabels, type SmqLocale } from "@/lib/smq-i18n";
 import { translateSmqStoredLabel } from "@/lib/smq-i18n-ui";
 import { localizeSmqEventsForLocale } from "@/lib/smq-translate-text";
 import type { SmqEvent } from "@/lib/types";
+import { renderMarkdownInPdf } from "@/lib/smq-pdf-markdown";
 import { fmtDate } from "@/lib/utils";
 
 const MARGIN = 14;
-
-function loadLogoAsset(): { dataUrl: string; format: "PNG" | "JPEG" } | null {
-  const logoPath = path.join(process.cwd(), "public", "logo-cides.png");
-  if (!fs.existsSync(/* turbopackIgnore: true */ logoPath)) return null;
-  const buffer = fs.readFileSync(/* turbopackIgnore: true */ logoPath);
-  return {
-    dataUrl: `data:image/png;base64,${buffer.toString("base64")}`,
-    format: "PNG",
-  };
-}
 
 function writeBlock(
   doc: jsPDF,
@@ -27,7 +17,8 @@ function writeBlock(
   maxWidth: number,
 ): number {
   let y = startY;
-  if (y > doc.internal.pageSize.getHeight() - 30) {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  if (y > pageHeight - 30) {
     doc.addPage();
     y = MARGIN;
   }
@@ -36,20 +27,22 @@ function writeBlock(
   doc.setTextColor(32, 38, 46);
   doc.text(title, MARGIN, y);
   y += 5;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(40, 40, 40);
-  const text = body.trim() || "—";
-  const lines = doc.splitTextToSize(text, maxWidth);
-  for (const line of lines) {
-    if (y > doc.internal.pageSize.getHeight() - 15) {
-      doc.addPage();
-      y = MARGIN;
-    }
-    doc.text(line, MARGIN, y);
-    y += 4.2;
+
+  const text = body.trim();
+  if (!text) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text("—", MARGIN, y);
+    return y + 8;
   }
-  return y + 4;
+
+  return renderMarkdownInPdf(doc, text, y, {
+    margin: MARGIN,
+    maxWidth,
+    pageHeight,
+    fontSize: 9,
+  });
 }
 
 export async function buildSmqEventPdf(event: SmqEvent, locale: SmqLocale): Promise<Uint8Array> {
@@ -57,7 +50,7 @@ export async function buildSmqEventPdf(event: SmqEvent, locale: SmqLocale): Prom
   const ev = eventLoc ?? event;
   const L = getSmqPdfLabels(locale);
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const logo = loadLogoAsset();
+  const logo = resolveSmqLogoAsset();
   const pageWidth = doc.internal.pageSize.getWidth();
   const contentWidth = pageWidth - MARGIN * 2;
   const generatedAt = new Date().toLocaleDateString(locale === "en" ? "en-GB" : "fr-FR", {

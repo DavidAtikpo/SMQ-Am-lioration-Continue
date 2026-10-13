@@ -13,12 +13,17 @@ type PlanEntry = {
   label: string;
 };
 
-function buildPlan(year: number): PlanEntry[] {
+function zoneSuffix(zone: "France" | "Togo"): string {
+  return zone === "France" ? "-FR" : "-TG";
+}
+
+function buildPlan(year: number, zone: "France" | "Togo"): PlanEntry[] {
+  const suffix = zoneSuffix(zone);
   const entries: PlanEntry[] = [];
 
   SMQ_CALENDRIER_SUGGERE.reunionInterne.forEach((month, i) => {
     entries.push({
-      id: `QHSE-RI-${year}-T${i + 1}`,
+      id: `QHSE-RI-${year}-T${i + 1}${suffix}`,
       type: "Réunion interne",
       date: dateForMonth(year, month),
       label: `Réunion interne T${i + 1} ${year}`,
@@ -27,7 +32,7 @@ function buildPlan(year: number): PlanEntry[] {
 
   SMQ_CALENDRIER_SUGGERE.auditInterne.forEach((month, i) => {
     entries.push({
-      id: `QHSE-AI-${year}-S${i + 1}`,
+      id: `QHSE-AI-${year}-S${i + 1}${suffix}`,
       type: "Audit interne",
       date: dateForMonth(year, month, 20),
       label: `Audit interne S${i + 1} ${year}`,
@@ -36,7 +41,7 @@ function buildPlan(year: number): PlanEntry[] {
 
   SMQ_CALENDRIER_SUGGERE.revueDirection.forEach((month) => {
     entries.push({
-      id: `QHSE-RD-${year}`,
+      id: `QHSE-RD-${year}${suffix}`,
       type: "Revue de Direction",
       date: dateForMonth(year, month, 28),
       label: `Revue de direction ${year}`,
@@ -46,12 +51,15 @@ function buildPlan(year: number): PlanEntry[] {
   return entries;
 }
 
-export async function ensureQhseCalendar(year = new Date().getFullYear()): Promise<{
+export async function ensureQhseCalendar(
+  year = new Date().getFullYear(),
+  zone: "France" | "Togo" = "Togo",
+): Promise<{
   created: number;
   existing: number;
   entries: PlanEntry[];
 }> {
-  const plan = buildPlan(year);
+  const plan = buildPlan(year, zone);
   let created = 0;
   let existing = 0;
   const services = [SYNC_SERVICES.planification, "Qualité", "Direction"];
@@ -81,6 +89,7 @@ export async function ensureQhseCalendar(year = new Date().getFullYear()): Promi
           "Contenu détaillé à générer via l'assistant IA.",
         ].join("\n"),
         compteRendu: "",
+        zone,
       },
     });
     created += 1;

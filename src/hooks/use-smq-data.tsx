@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useSmqLocale } from "@/hooks/use-smq-locale";
 import type { SmqData } from "@/lib/types";
 
 type SmqContextValue = {
@@ -12,9 +20,12 @@ type SmqContextValue = {
 
 const SmqContext = createContext<SmqContextValue | null>(null);
 
-async function fetchSmqData(): Promise<{ data: SmqData | null; error: string | null }> {
+async function fetchSmqData(
+  locale: string,
+): Promise<{ data: SmqData | null; error: string | null }> {
   try {
-    const res = await fetch("/api/services");
+    const qs = new URLSearchParams({ locale });
+    const res = await fetch(`/api/services?${qs.toString()}`);
     if (!res.ok) {
       return {
         data: null,
@@ -32,6 +43,7 @@ async function fetchSmqData(): Promise<{ data: SmqData | null; error: string | n
 }
 
 export function SmqProvider({ children }: { children: React.ReactNode }) {
+  const { locale } = useSmqLocale();
   const [data, setData] = useState<SmqData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,17 +51,19 @@ export function SmqProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const result = await fetchSmqData();
+    const result = await fetchSmqData(locale);
     setData(result.data);
     setError(result.error);
     setLoading(false);
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      const result = await fetchSmqData();
+      setLoading(true);
+      setError(null);
+      const result = await fetchSmqData(locale);
       if (cancelled) return;
       setData(result.data);
       setError(result.error);
@@ -59,7 +73,7 @@ export function SmqProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [locale]);
 
   const value = useMemo(
     () => ({ data, loading, error, refresh }),

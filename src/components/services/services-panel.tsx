@@ -4,12 +4,12 @@ import { useState } from "react";
 import { Building2, Plus, X } from "lucide-react";
 import { Btn, LoadingState, TextInput } from "@/components/ui";
 import { SmqPageHeader } from "@/components/layout/smq-page-header";
-import { useSmqData } from "@/hooks/use-smq-data";
+import { useSmqFilteredData } from "@/hooks/use-smq-filtered-data";
 import { useSmqLocale } from "@/hooks/use-smq-locale";
 
 export function ServicesPanel() {
   const { t, tr } = useSmqLocale();
-  const { data, loading, error, refresh } = useSmqData();
+  const { data, loading, error, refresh } = useSmqFilteredData();
   const [newService, setNewService] = useState("");
 
   if (loading || !data) return <LoadingState error={error} onRetry={() => void refresh()} />;
